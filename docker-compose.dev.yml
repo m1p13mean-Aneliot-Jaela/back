@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:7.0
+    container_name: m1p13mean-mongodb-dev
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_DATABASE: m1p13mean
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - m1p13mean-network
+
+  # Backend API with hot reload
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: m1p13mean-backend-dev
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      HOST: 0.0.0.0
+      MONGODB_URI: mongodb://mongodb:27017/m1p13mean
+      JWT_SECRET: dev_secret_key
+      JWT_EXPIRES_IN: 24h
+      JWT_REFRESH_SECRET: dev_refresh_secret
+      JWT_REFRESH_EXPIRES_IN: 7d
+      CORS_ORIGIN: http://localhost:4200
+      LOG_LEVEL: debug
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - ./logs:/app/logs
+    depends_on:
+      - mongodb
+    networks:
+      - m1p13mean-network
+    command: npm run dev
+
+volumes:
+  mongodb_data:
+    driver: local
+
+networks:
+  m1p13mean-network:
+    driver: bridge
