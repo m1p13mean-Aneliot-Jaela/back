@@ -4,13 +4,16 @@ Express.js REST API with modular architecture and MongoDB.
 
 ## Features
 
-- Modular architecture by domain (ready for your modules)
-- MongoDB with Mongoose (optional)
-- Input validation
-- Error handling
+- Modular architecture by domain
+- **JWT Authentication** (JSON Web Tokens)
+- User management with role-based access control (admin, brand, shop, buyer)
+- MongoDB with Mongoose ODM
+- Input validation with express-validator
+- Comprehensive error handling
 - Logging with Winston
 - Security with Helmet
 - CORS enabled
+- Password hashing with bcrypt
 
 ## Prerequisites
 
@@ -94,20 +97,82 @@ npm test
 
 ```
 src/
-├── app.js                 # Express app configuration
-├── server.js              # HTTP server bootstrap
-├── config/                # Configuration files
-├── modules/               # Business domain modules
-├── middlewares/           # Express middlewares
-├── shared/                # Shared utilities
-├── tests/                 # Test files
-└── docs/                  # Documentation
+├── app.js                     # Express app configuration
+├── server.js                  # HTTP server bootstrap
+├── config/                    # Configuration files
+│   ├── env.js                # Environment variables
+│   ├── database.js           # Database connection
+│   └── logger.js             # Winston logger setup
+├── modules/                   # Business domain modules
+│   ├── auth/                 # Authentication module
+│   │   ├── auth.routes.js   # Auth routes
+│   │   ├── auth.controller.js
+│   │   └── auth.service.js
+│   └── user/                 # User management module
+│       ├── user.routes.js   # User routes
+│       ├── user.controller.js
+│       ├── user.service.js
+│       ├── user.repository.js
+│       └── user.model.js
+├── middlewares/               # Express middlewares
+│   ├── auth.middleware.js    # JWT authentication & authorization
+│   ├── validation.middleware.js
+│   └── error.middleware.js
+├── shared/                    # Shared utilities
+│   ├── constants/            # App constants
+│   ├── errors/               # Custom error classes
+│   ├── utils/                # Utility functions
+│   └── validators/           # Validation schemas
+├── docs/                      # API documentation
+│   ├── api-overview.md       # API overview
+│   ├── auth.api.md          # Authentication API docs
+│   └── user.api.md          # User API docs
+└── tests/                     # Test files
 ```
 
-## API Endpoints
+## API Documentation
 
-### Health Check
-- GET `/health` - Server health check
+The API uses **JWT (JSON Web Tokens)** for authentication.
 
-### Your Modules
-Add your API endpoints in the `src/modules/` directory following the modular architecture pattern.
+### Quick Links
+
+- **[API Overview](src/docs/api-overview.md)** - Complete API documentation with response formats and examples
+- **[Authentication API](src/docs/auth.api.md)** - Signup, login, logout, and token management
+- **[User API](src/docs/user.api.md)** - User profile and administration endpoints
+
+### Available Endpoints
+
+#### Health Check
+- `GET /health` - Server health check
+
+#### Authentication Module (`/api/auth`)
+- `POST /api/auth/signup` - Register new buyer account
+- `POST /api/auth/login` - Login (all user types)
+- `POST /api/auth/refresh` - Refresh access token
+- `POST /api/auth/logout` - Logout user
+- `GET /api/auth/validate` - Validate token
+
+#### User Module (`/api/users`)
+- `GET /api/users/profile` - Get current user profile
+- `PUT /api/users/profile` - Update current user profile
+- `GET /api/users` - Get all users (admin only)
+- `GET /api/users/:id` - Get user by ID (admin only)
+- `PUT /api/users/:id` - Update user (admin only)
+- `PUT /api/users/:id/status` - Update user status (admin only)
+- `DELETE /api/users/:id` - Delete user (admin only)
+- `GET /api/users/stats` - Get user statistics (admin only)
+
+### User Types
+
+- `admin` - System administrators
+- `brand` - Brand managers/owners
+- `shop` - Shop managers/staff
+- `buyer` - Regular customers (can self-register)
+
+### Database Setup
+
+Run the database setup script to create collections with validators and indexes:
+
+```bash
+npm run setup:db
+```
