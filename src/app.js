@@ -40,8 +40,11 @@ app.get('/health', (req, res) => {
 });
 
 // API routes
-// Add your routes here
-// Example: app.use('/api/resource', resourceRoutes);
+const authRoutes = require('./modules/auth/auth.routes');
+const userRoutes = require('./modules/user/user.routes');
+
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
 
 // 404 handler
 app.use((req, res) => {
