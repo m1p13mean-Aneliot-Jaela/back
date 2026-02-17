@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const config = require('../../config/env');
 const userRepository = require('../user/user.repository');
+const employeeRepository = require('../employee/employee.repository');
 const { ValidationError, UnauthorizedError, ForbiddenError } = require('../../shared/errors/custom-errors');
 
 class AuthService {
@@ -122,16 +123,28 @@ class AuthService {
     const accessToken = this.generateAccessToken(user);
     const refreshToken = this.generateRefreshToken(user);
 
+    // Prepare user response
+    const userResponse = {
+      id: user._id,
+      email: user.email,
+      first_name: user.first_name,
+      last_name: user.last_name,
+      user_type: user.user_type,
+      phone: user.phone,
+      profile_photo: user.profile_photo
+    };
+
+    // If user is a shop employee, find their shop_id
+    if (user.user_type === 'shop') {
+      const employee = await employeeRepository.findByEmail(email);
+      if (employee) {
+        userResponse.shop_id = employee.shop_id?.toString();
+        userResponse.role = employee.role;
+      }
+    }
+
     return {
-      user: {
-        id: user._id,
-        email: user.email,
-        first_name: user.first_name,
-        last_name: user.last_name,
-        user_type: user.user_type,
-        phone: user.phone,
-        profile_photo: user.profile_photo
-      },
+      user: userResponse,
       tokens: {
         accessToken,
         refreshToken

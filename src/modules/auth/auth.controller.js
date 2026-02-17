@@ -2,6 +2,7 @@ const authService = require('./auth.service');
 const { asyncHandler } = require('../../shared/utils/async-handler');
 const HTTP_STATUS = require('../../shared/constants/http-status');
 const MESSAGES = require('../../shared/constants/messages');
+const config = require('../../config/env');
 
 class AuthController {
   signup = asyncHandler(async (req, res) => {
@@ -15,10 +16,26 @@ class AuthController {
       phone
     });
 
+    // Set HttpOnly cookies for tokens
+    res.cookie('accessToken', result.tokens.accessToken, {
+      httpOnly: true,
+      secure: config.env === 'production',
+      sameSite: 'strict',
+      maxAge: 15 * 60 * 1000 // 15 minutes
+    });
+
+    res.cookie('refreshToken', result.tokens.refreshToken, {
+      httpOnly: true,
+      secure: config.env === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    });
+
+    // Return user data without tokens
     res.status(HTTP_STATUS.CREATED).json({
       success: true,
       message: MESSAGES.AUTH.SIGNUP_SUCCESS,
-      data: result
+      data: { user: result.user }
     });
   });
 
@@ -27,27 +44,68 @@ class AuthController {
 
     const result = await authService.login(email, password);
 
+    // Set HttpOnly cookies for tokens
+    res.cookie('accessToken', result.tokens.accessToken, {
+      httpOnly: true,
+      secure: config.env === 'production',
+      sameSite: 'strict',
+      maxAge: 15 * 60 * 1000 // 15 minutes
+    });
+
+    res.cookie('refreshToken', result.tokens.refreshToken, {
+      httpOnly: true,
+      secure: config.env === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    });
+
+    // Return user data without tokens
     res.status(HTTP_STATUS.OK).json({
       success: true,
       message: MESSAGES.AUTH.LOGIN_SUCCESS,
-      data: result
+      data: { user: result.user }
     });
   });
 
   refreshToken = asyncHandler(async (req, res) => {
-    const { refreshToken } = req.body;
+    const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
+
+    if (!refreshToken) {
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
+        success: false,
+        message: 'Refresh token is required'
+      });
+    }
 
     const tokens = await authService.refreshTokens(refreshToken);
 
+    // Set new HttpOnly cookies
+    res.cookie('accessToken', tokens.accessToken, {
+      httpOnly: true,
+      secure: config.env === 'production',
+      sameSite: 'strict',
+      maxAge: 15 * 60 * 1000
+    });
+
+    res.cookie('refreshToken', tokens.refreshToken, {
+      httpOnly: true,
+      secure: config.env === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000
+    });
+
     res.status(HTTP_STATUS.OK).json({
       success: true,
-      message: MESSAGES.AUTH.TOKEN_REFRESHED,
-      data: tokens
+      message: MESSAGES.AUTH.TOKEN_REFRESHED
     });
   });
 
   logout = asyncHandler(async (req, res) => {
     await authService.logout(req.user.id);
+
+    // Clear cookies
+    res.clearCookie('accessToken');
+    res.clearCookie('refreshToken');
 
     res.status(HTTP_STATUS.OK).json({
       success: true,
@@ -56,7 +114,7 @@ class AuthController {
   });
 
   validateToken = asyncHandler(async (req, res) => {
-    const token = req.headers.authorization?.split(' ')[1];
+    const token = req.cookies.accessToken || req.headers.authorization?.split(' ')[1];
 
     if (!token) {
       return res.status(HTTP_STATUS.UNAUTHORIZED).json({
