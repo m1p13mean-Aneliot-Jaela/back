@@ -2,6 +2,7 @@ const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
 const compression = require('compression');
+const cookieParser = require('cookie-parser');
 const config = require('./config/env');
 const logger = require('./config/logger');
 const errorMiddleware = require('./middlewares/error.middleware');
@@ -10,6 +11,9 @@ const app = express();
 
 // Security middleware
 app.use(helmet());
+
+// Cookie parsing middleware
+app.use(cookieParser());
 
 // CORS configuration
 app.use(cors({
@@ -42,9 +46,11 @@ app.get('/health', (req, res) => {
 // API routes
 const authRoutes = require('./modules/auth/auth.routes');
 const userRoutes = require('./modules/user/user.routes');
+const employeeRoutes = require('./modules/employee/employee.routes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api', employeeRoutes);
 
 // 404 handler
 app.use((req, res) => {

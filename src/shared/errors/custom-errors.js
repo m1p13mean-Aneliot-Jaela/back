@@ -38,11 +38,19 @@ class ConflictError extends AppError {
   }
 }
 
+// Utility function to catch async errors in Express controllers
+const catchAsync = (fn) => {
+  return (req, res, next) => {
+    fn(req, res, next).catch(next);
+  };
+};
+
 module.exports = {
   AppError,
   ValidationError,
   UnauthorizedError,
   ForbiddenError,
   NotFoundError,
-  ConflictError
+  ConflictError,
+  catchAsync
 };
