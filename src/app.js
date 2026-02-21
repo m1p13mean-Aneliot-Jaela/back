@@ -16,9 +16,29 @@ app.use(helmet());
 app.use(cookieParser());
 
 // CORS configuration
+const allowedOrigins = [
+  config.cors.origin,
+  'http://localhost:4200',
+  'http://localhost:4300',
+  'http://127.0.0.1:4200',
+  'http://127.0.0.1:4300'
+];
+
 app.use(cors({
-  origin: config.cors.origin,
-  credentials: true
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, curl, etc.)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.warn('CORS blocked origin:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 
 // Body parsing middleware
@@ -47,10 +67,16 @@ app.get('/health', (req, res) => {
 const authRoutes = require('./modules/auth/auth.routes');
 const userRoutes = require('./modules/user/user.routes');
 const employeeRoutes = require('./modules/employee/employee.routes');
+const productRoutes = require('./modules/product/product.routes');
+const stockRoutes = require('./modules/stock/stock.routes');
+const promotionRoutes = require('./modules/promotion/promotion.routes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api', employeeRoutes);
+app.use('/api/products', productRoutes);
+app.use('/api', stockRoutes);
+app.use('/api', promotionRoutes);
 
 // 404 handler
 app.use((req, res) => {

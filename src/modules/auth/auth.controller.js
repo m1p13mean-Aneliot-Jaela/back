@@ -4,6 +4,14 @@ const HTTP_STATUS = require('../../shared/constants/http-status');
 const MESSAGES = require('../../shared/constants/messages');
 const config = require('../../config/env');
 
+function getCookieOptions() {
+  return {
+    httpOnly: true,
+    secure: config.env === 'production',
+    sameSite: config.env === 'production' ? 'strict' : 'none'
+  };
+}
+
 class AuthController {
   signup = asyncHandler(async (req, res) => {
     const { email, password, first_name, last_name, phone } = req.body;
@@ -17,17 +25,15 @@ class AuthController {
     });
 
     // Set HttpOnly cookies for tokens
+    const cookieOptions = getCookieOptions();
+
     res.cookie('accessToken', result.tokens.accessToken, {
-      httpOnly: true,
-      secure: config.env === 'production',
-      sameSite: 'strict',
+      ...cookieOptions,
       maxAge: 15 * 60 * 1000 // 15 minutes
     });
 
     res.cookie('refreshToken', result.tokens.refreshToken, {
-      httpOnly: true,
-      secure: config.env === 'production',
-      sameSite: 'strict',
+      ...cookieOptions,
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
 
@@ -35,7 +41,7 @@ class AuthController {
     res.status(HTTP_STATUS.CREATED).json({
       success: true,
       message: MESSAGES.AUTH.SIGNUP_SUCCESS,
-      data: { user: result.user }
+      data: { user: result.user, accessToken: result.tokens.accessToken }
     });
   });
 
@@ -44,18 +50,16 @@ class AuthController {
 
     const result = await authService.login(email, password);
 
+    const cookieOptions = getCookieOptions();
+
     // Set HttpOnly cookies for tokens
     res.cookie('accessToken', result.tokens.accessToken, {
-      httpOnly: true,
-      secure: config.env === 'production',
-      sameSite: 'strict',
+      ...cookieOptions,
       maxAge: 15 * 60 * 1000 // 15 minutes
     });
 
     res.cookie('refreshToken', result.tokens.refreshToken, {
-      httpOnly: true,
-      secure: config.env === 'production',
-      sameSite: 'strict',
+      ...cookieOptions,
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
 
@@ -63,7 +67,7 @@ class AuthController {
     res.status(HTTP_STATUS.OK).json({
       success: true,
       message: MESSAGES.AUTH.LOGIN_SUCCESS,
-      data: { user: result.user }
+      data: { user: result.user, accessToken: result.tokens.accessToken }
     });
   });
 
@@ -79,24 +83,23 @@ class AuthController {
 
     const tokens = await authService.refreshTokens(refreshToken);
 
+    const cookieOptions = getCookieOptions();
+
     // Set new HttpOnly cookies
     res.cookie('accessToken', tokens.accessToken, {
-      httpOnly: true,
-      secure: config.env === 'production',
-      sameSite: 'strict',
+      ...cookieOptions,
       maxAge: 15 * 60 * 1000
     });
 
     res.cookie('refreshToken', tokens.refreshToken, {
-      httpOnly: true,
-      secure: config.env === 'production',
-      sameSite: 'strict',
+      ...cookieOptions,
       maxAge: 7 * 24 * 60 * 60 * 1000
     });
 
     res.status(HTTP_STATUS.OK).json({
       success: true,
-      message: MESSAGES.AUTH.TOKEN_REFRESHED
+      message: MESSAGES.AUTH.TOKEN_REFRESHED,
+      data: { accessToken: tokens.accessToken }
     });
   });
 

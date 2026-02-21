@@ -2,6 +2,7 @@ const app = require('./app');
 const config = require('./config/env');
 const logger = require('./config/logger');
 const database = require('./config/database');
+const promotionService = require('./modules/promotion/promotion.service');
 
 async function startServer() {
   try {
@@ -18,6 +19,18 @@ async function startServer() {
       logger.info(`Server running on http://${config.host}:${config.port}`);
       logger.info(`Environment: ${config.env}`);
     });
+
+    // Schedule automatic promotion expiration (every hour)
+    setInterval(async () => {
+      try {
+        const expiredCount = await promotionService.expireOldPromotions();
+        if (expiredCount > 0) {
+          logger.info(`${expiredCount} promotions auto-expirées`);
+        }
+      } catch (error) {
+        logger.error('Erreur lors de l\'expiration automatique des promotions:', error);
+      }
+    }, 60 * 60 * 1000); // Every hour
 
     // Graceful shutdown
     const gracefulShutdown = async (signal) => {
