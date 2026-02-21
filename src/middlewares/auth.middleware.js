@@ -124,6 +124,36 @@ const checkShopOwnership = (req, res, next) => {
 };
 
 /**
+ * Middleware to check if user is a shop user (MANAGER_SHOP or STAFF)
+ */
+const authorizeShopUser = (req, res, next) => {
+  try {
+    if (!req.user) {
+      throw new UnauthorizedError(MESSAGES.AUTH.UNAUTHORIZED);
+    }
+
+    // Admins can access shop routes too
+    if (req.user.user_type === 'admin') {
+      return next();
+    }
+
+    // Must be shop user_type
+    if (req.user.user_type !== 'shop') {
+      throw new ForbiddenError(MESSAGES.AUTH.FORBIDDEN);
+    }
+
+    // Must have shop_id
+    if (!req.user.shop_id) {
+      throw new ForbiddenError('No shop associated with your account');
+    }
+
+    next();
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * Middleware to check if user is MANAGER_SHOP and owns the shop
  */
 const checkShopManagerRole = (req, res, next) => {
@@ -218,6 +248,7 @@ const checkEmployeeOwnership = async (req, res, next) => {
 module.exports = {
   authenticate,
   authorize,
+  authorizeShopUser,
   checkActiveStatus,
   checkShopOwnership,
   checkShopManagerRole,
