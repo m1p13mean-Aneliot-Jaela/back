@@ -103,4 +103,117 @@ shopProfileSchema.statics.findOrCreate = async function(shopId) {
 
 const ShopProfile = mongoose.models.ShopProfile || mongoose.model('ShopProfile', shopProfileSchema);
 
-module.exports = { ShopProfile };
+// ============================================================================
+// Shop Schema (Main shop entity with users, status, etc.)
+// ============================================================================
+
+const shopSchema = new mongoose.Schema({
+  shop_name: { 
+    type: String, 
+    required: true 
+  },
+  description: { type: String },
+  logo: { type: String },
+  mall_location: { type: String },
+  
+  opening_time: {
+    monday: { open: { type: String }, close: { type: String } },
+    tuesday: { open: { type: String }, close: { type: String } },
+    wednesday: { open: { type: String }, close: { type: String } },
+    thursday: { open: { type: String }, close: { type: String } },
+    friday: { open: { type: String }, close: { type: String } },
+    saturday: { open: { type: String }, close: { type: String } },
+    sunday: { open: { type: String }, close: { type: String } }
+  },
+  
+  created_at: { 
+    type: Date, 
+    default: Date.now 
+  },
+  
+  // Users assigned to this shop (employees/managers)
+  users: [{
+    user_id: { 
+      type: mongoose.Schema.Types.ObjectId, 
+      ref: 'User',
+      required: true 
+    },
+    role: { 
+      type: String, 
+      enum: ['MANAGER_SHOP', 'STAFF'],
+      required: true 
+    },
+    assigned_at: { 
+      type: Date, 
+      default: Date.now,
+      required: true 
+    },
+    first_name: { type: String },
+    last_name: { type: String }
+  }],
+  
+  // Shop status
+  current_status: {
+    status: { 
+      type: String, 
+      enum: ['pending', 'validated', 'active', 'deactivated', 'suspended'],
+      default: 'pending'
+    },
+    reason: { type: String },
+    updated_at: { type: Date }
+  },
+  
+  status_history: [{
+    status: { 
+      type: String, 
+      enum: ['pending', 'validated', 'active', 'deactivated', 'suspended']
+    },
+    reason: { type: String },
+    updated_at: { type: Date }
+  }],
+  
+  // Categories
+  categories: [{
+    category_id: { 
+      type: mongoose.Schema.Types.ObjectId, 
+      ref: 'ShopCategory'
+    },
+    name: { type: String },
+    assigned_at: { type: Date, default: Date.now }
+  }],
+  
+  // Update history
+  update_history: [{
+    shop_name: { type: String },
+    description: { type: String },
+    logo: { type: String },
+    mall_location: { type: String },
+    opening_time: { type: Object },
+    updated_at: { type: Date }
+  }],
+  
+  // Review stats
+  review_stats: {
+    average_rating: { type: Number, default: 0 },
+    total_reviews: { type: Number, default: 0 }
+  }
+}, {
+  timestamps: true,
+  collection: 'shops',
+  toJSON: {
+    transform: function(doc, ret) {
+      delete ret.__v;
+      return ret;
+    }
+  }
+});
+
+// Indexes
+shopSchema.index({ 'current_status.status': 1 });
+shopSchema.index({ 'categories.category_id': 1 });
+shopSchema.index({ 'users.user_id': 1 });
+shopSchema.index({ mall_location: 1 });
+
+const Shop = mongoose.models.Shop || mongoose.model('Shop', shopSchema);
+
+module.exports = { ShopProfile, Shop };
