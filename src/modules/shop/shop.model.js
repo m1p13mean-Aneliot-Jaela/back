@@ -1,202 +1,106 @@
 const mongoose = require('mongoose');
 
-const shopSchema = new mongoose.Schema({
-  // Nom de la boutique
-  shop_name: {
-    type: String,
-    required: true,
-    trim: true
+const businessHoursSchema = new mongoose.Schema({
+  open: { type: String, default: '08:00' },
+  close: { type: String, default: '18:00' },
+  closed: { type: Boolean, default: false }
+}, { _id: false });
+
+const shopProfileSchema = new mongoose.Schema({
+  // Reference to the shop/user
+  shop_id: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    required: true, 
+    unique: true,
+    index: true 
   },
-
-  // Description
-  description: {
-    type: String,
-    trim: true,
-    maxlength: 2000
+  
+  // Basic Info
+  name: { type: String, required: true },
+  logo: { type: String }, // URL to logo image
+  description: { type: String },
+  
+  // Location
+  location: {
+    address: { type: String },
+    city: { type: String },
+    postal_code: { type: String },
+    country: { type: String, default: 'MG' }, // Madagascar
+    latitude: { type: Number },
+    longitude: { type: Number }
   },
-
-  // Logo
-  logo: {
-    type: String,
-    trim: true
+  
+  // Business Hours
+  business_hours: {
+    monday: { type: businessHoursSchema, default: () => ({ open: '08:00', close: '18:00', closed: false }) },
+    tuesday: { type: businessHoursSchema, default: () => ({ open: '08:00', close: '18:00', closed: false }) },
+    wednesday: { type: businessHoursSchema, default: () => ({ open: '08:00', close: '18:00', closed: false }) },
+    thursday: { type: businessHoursSchema, default: () => ({ open: '08:00', close: '18:00', closed: false }) },
+    friday: { type: businessHoursSchema, default: () => ({ open: '08:00', close: '18:00', closed: false }) },
+    saturday: { type: businessHoursSchema, default: () => ({ open: '08:00', close: '12:00', closed: false }) },
+    sunday: { type: businessHoursSchema, default: () => ({ open: '08:00', close: '18:00', closed: true }) }
   },
-
-  // Localisation dans le mall
-  mall_location: {
-    type: String,
-    trim: true
+  
+  // Contact Information
+  contact: {
+    phone: { type: String },
+    email: { type: String },
+    website: { type: String },
+    whatsapp: { type: String }
   },
-
-  // Horaires d'ouverture
-  opening_time: {
-    monday: { 
-      open: { type: String },
-      close: { type: String }
-    },
-    tuesday: { 
-      open: { type: String },
-      close: { type: String }
-    },
-    wednesday: { 
-      open: { type: String },
-      close: { type: String }
-    },
-    thursday: { 
-      open: { type: String },
-      close: { type: String }
-    },
-    friday: { 
-      open: { type: String },
-      close: { type: String }
-    },
-    saturday: { 
-      open: { type: String },
-      close: { type: String }
-    },
-    sunday: { 
-      open: { type: String },
-      close: { type: String }
-    }
+  
+  // Social Media
+  social_media: {
+    facebook: { type: String },
+    instagram: { type: String },
+    twitter: { type: String },
+    youtube: { type: String }
   },
-
-  // Date de création
-  created_at: {
-    type: Date,
-    default: Date.now
+  
+  // Settings
+  settings: {
+    currency: { type: String, default: 'MGA' }, // Malagasy Ariary
+    timezone: { type: String, default: 'Indian/Antananarivo' },
+    language: { type: String, default: 'fr' }
   },
-
-  // Utilisateurs assignés à la boutique
-  users: [{
-    user_id: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      required: true
-    },
-    role: {
-      type: String,
-      enum: ['MANAGER_SHOP', 'STAFF'],
-      required: true
-    },
-    assigned_at: {
-      type: Date,
-      default: Date.now
-    },
-    first_name: {
-      type: String,
-      trim: true
-    },
-    last_name: {
-      type: String,
-      trim: true
-    }
-  }],
-
-  // Statut actuel
-  current_status: {
-    status: {
-      type: String,
-      enum: ['pending', 'validated', 'active', 'deactivated', 'suspended'],
-      default: 'pending'
-    },
-    reason: {
-      type: String,
-      trim: true
-    },
-    updated_at: {
-      type: Date,
-      default: Date.now
-    }
-  },
-
-  // Historique des statuts
-  status_history: [{
-    status: {
-      type: String,
-      enum: ['pending', 'validated', 'active', 'deactivated', 'suspended']
-    },
-    reason: {
-      type: String,
-      trim: true
-    },
-    updated_at: {
-      type: Date,
-      default: Date.now
-    }
-  }],
-
-  // Catégories
-  categories: [{
-    category_id: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'ShopCategory'
-    },
-    name: {
-      type: String,
-      trim: true
-    },
-    assigned_at: {
-      type: Date,
-      default: Date.now
-    }
-  }],
-
-  // Historique des modifications
-  update_history: [{
-    shop_name: String,
-    description: String,
-    logo: String,
-    mall_location: String,
-    opening_time: mongoose.Schema.Types.Mixed,
-    updated_at: {
-      type: Date,
-      default: Date.now
-    }
-  }],
-
-  // Statistiques de reviews
-  review_stats: {
-    average_rating: {
-      type: Number,
-      default: 0,
-      min: 0,
-      max: 5
-    },
-    total_reviews: {
-      type: Number,
-      default: 0,
-      min: 0
+  
+  // Status
+  is_active: { type: Boolean, default: true },
+  is_verified: { type: Boolean, default: false },
+  
+  // Metadata
+  created_at: { type: Date, default: Date.now },
+  updated_at: { type: Date }
+}, {
+  collection: 'shop_profiles',
+  toJSON: {
+    transform: function(doc, ret) {
+      delete ret.__v;
+      return ret;
     }
   }
-}, {
-  timestamps: true,
-  collection: 'shops'
 });
 
-// Index pour recherche rapide
-shopSchema.index({ 'current_status.status': 1 });
-shopSchema.index({ 'categories.category_id': 1 });
-shopSchema.index({ 'users.user_id': 1 });
-shopSchema.index({ mall_location: 1 });
-shopSchema.index({ shop_name: 1 });
-shopSchema.index({ createdAt: -1 });
+// Indexes
+shopProfileSchema.index({ 'location.city': 1 });
+shopProfileSchema.index({ 'location.latitude': 1, 'location.longitude': 1 });
 
-// Index composé pour les requêtes courantes
-shopSchema.index({ 'categories.category_id': 1, 'current_status.status': 1 });
-
-// Virtuals
-shopSchema.virtual('is_active').get(function() {
-  return this.current_status?.status === 'active';
+// Pre-save middleware
+shopProfileSchema.pre('save', function(next) {
+  this.updated_at = new Date();
+  next();
 });
 
-// Ne pas retourner certains champs sensibles dans les réponses JSON par défaut
-shopSchema.methods.toJSON = function() {
-  const obj = this.toObject();
-  obj.id = obj._id;
-  delete obj._id;
-  delete obj.__v;
-  return obj;
+// Static method to find or create profile
+shopProfileSchema.statics.findOrCreate = async function(shopId) {
+  let profile = await this.findOne({ shop_id: shopId });
+  if (!profile) {
+    profile = new this({ shop_id: shopId, name: 'Ma Boutique' });
+    await profile.save();
+  }
+  return profile;
 };
 
-const Shop = mongoose.model('Shop', shopSchema);
+const ShopProfile = mongoose.models.ShopProfile || mongoose.model('ShopProfile', shopProfileSchema);
 
-module.exports = Shop;
+module.exports = { ShopProfile };

@@ -1,238 +1,157 @@
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 const shopController = require('./shop.controller');
 const { authenticate, authorize } = require('../../middlewares/auth.middleware');
-const { validateRequest } = require('../../middlewares/validation.middleware');
-const { body, param } = require('express-validator');
+const { checkShopOwnership } = require('../../middlewares/auth.middleware');
 
-// ============================================
-// VALIDATION RULES
-// ============================================
+// Configure multer for logo uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const shopId = req.params.shopId || req.user?.shop_id;
+    const uploadDir = path.join(__dirname, '../../../../uploads/shops', shopId?.toString() || 'temp', 'logo');
+    
+    // Create directory if it doesn't exist
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname);
+    cb(null, 'logo-' + uniqueSuffix + ext);
+  }
+});
 
-const createShopValidation = [
-  body('shop_name').trim().notEmpty().withMessage('Shop name is required'),
-  body('description').optional().trim().isLength({ max: 2000 }).withMessage('Description must not exceed 2000 characters'),
-  body('mall_location').optional().trim(),
-  body('logo').optional().trim()
-];
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB limit
+  fileFilter: (req, file, cb) => {
+    // Accept only images
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'));
+    }
+  }
+});
 
-const updateShopValidation = [
-  param('id').isMongoId().withMessage('Invalid shop ID'),
-  body('shop_name').optional().trim().notEmpty().withMessage('Shop name cannot be empty'),
-  body('description').optional().trim().isLength({ max: 2000 }).withMessage('Description must not exceed 2000 characters'),
-  body('mall_location').optional().trim(),
-  body('logo').optional().trim()
-];
+// Middleware to allow shop users (similar to delivery routes)
+const authorizeShopUser = (req, res, next) => {
+  try {
+    if (!req.user) {
+      throw new Error('Unauthorized');
+    }
+    if (['admin', 'brand', 'shop'].includes(req.user.user_type)) {
+      return next();
+    }
+    throw new Error('Forbidden');
+  } catch (error) {
+    return res.status(403).json({ success: false, message: 'Access denied' });
+  }
+};
 
-const shopIdValidation = [
-  param('id').isMongoId().withMessage('Invalid shop ID')
-];
+// ========== SHOP PROFILE ROUTES ==========
 
-const updateStatusValidation = [
-  param('id').isMongoId().withMessage('Invalid shop ID'),
-  body('status')
-    .isIn(['pending', 'validated', 'active', 'deactivated', 'suspended'])
-    .withMessage('Invalid status'),
-  body('reason').optional().trim()
-];
-
-const statusReasonValidation = [
-  param('id').isMongoId().withMessage('Invalid shop ID'),
-  body('reason')
-    .trim()
-    .notEmpty()
-    .withMessage('Reason is required')
-    .isLength({ min: 10 })
-    .withMessage('Reason must be at least 10 characters')
-];
-
-const addCategoryValidation = [
-  param('id').isMongoId().withMessage('Invalid shop ID'),
-  body('category_id').isMongoId().withMessage('Valid category ID is required'),
-  body('name').trim().notEmpty().withMessage('Category name is required')
-];
-
-const addUserValidation = [
-  param('id').isMongoId().withMessage('Invalid shop ID'),
-  body('user_id').isMongoId().withMessage('Valid user ID is required'),
-  body('role').isIn(['MANAGER_SHOP', 'STAFF']).withMessage('Role must be MANAGER_SHOP or STAFF'),
-  body('first_name').trim().notEmpty().withMessage('First name is required'),
-  body('last_name').trim().notEmpty().withMessage('Last name is required')
-];
-
-const updateUserRoleValidation = [
-  param('id').isMongoId().withMessage('Invalid shop ID'),
-  param('userId').isMongoId().withMessage('Invalid user ID'),
-  body('role').isIn(['MANAGER_SHOP', 'STAFF']).withMessage('Role must be MANAGER_SHOP or STAFF')
-];
-
-// ============================================
-// AUTHENTICATED ROUTES
-// ============================================
-
-// All routes require authentication
-router.use(authenticate);
-
-// ============================================
-// ADMIN ROUTES - Shop CRUD
-// ============================================
-
-// Get shop statistics
-router.get('/admin/analytics/stats',
-  authorize(['admin']),
-  shopController.getShopStats
+// Get my shop profile (from auth token)
+router.get('/shops/me/profile',
+  authenticate,
+  authorizeShopUser,
+  shopController.getMyProfile
 );
 
-// Search shops
-router.get('/admin/search',
-  authorize(['admin']),
-  shopController.searchShops
+// Update my shop profile
+router.patch('/shops/me/profile',
+  authenticate,
+  authorizeShopUser,
+  shopController.updateMyProfile
 );
 
-// Get shops by category
-router.get('/admin/category/:categoryId',
-  authorize(['admin']),
-  param('categoryId').isMongoId().withMessage('Invalid category ID'),
-  validateRequest,
-  shopController.getShopsByCategory
+// Upload logo with file (multipart/form-data)
+router.post('/shops/me/profile/logo/upload',
+  authenticate,
+  authorizeShopUser,
+  upload.single('logo'),
+  shopController.uploadLogo
 );
 
-// Get shops by status
-router.get('/admin/status/:status',
-  authorize(['admin']),
-  param('status')
-    .isIn(['pending', 'validated', 'active', 'deactivated', 'suspended'])
-    .withMessage('Invalid status'),
-  validateRequest,
-  shopController.getShopsByStatus
+// Get shop profile by ID
+router.get('/shops/:shopId/profile',
+  authenticate,
+  authorizeShopUser,
+  checkShopOwnership,
+  shopController.getProfile
 );
 
-// Create shop
-router.post('/admin',
-  authorize(['admin']),
-  createShopValidation,
-  validateRequest,
-  shopController.createShop
+// Full update (PUT)
+router.put('/shops/:shopId/profile',
+  authenticate,
+  authorizeShopUser,
+  checkShopOwnership,
+  shopController.updateProfile
 );
 
-// Get all shops
-router.get('/admin',
-  authorize(['admin']),
-  shopController.getAllShops
+// Partial update (PATCH)
+router.patch('/shops/:shopId/profile',
+  authenticate,
+  authorizeShopUser,
+  checkShopOwnership,
+  shopController.patchProfile
 );
 
-// Get shop by ID
-router.get('/admin/:id',
-  authorize(['admin', 'shop']),
-  shopIdValidation,
-  validateRequest,
-  shopController.getShopById
+// Update logo URL
+router.patch('/shops/:shopId/profile/logo',
+  authenticate,
+  authorizeShopUser,
+  checkShopOwnership,
+  shopController.updateLogo
 );
 
-// Update shop
-router.put('/admin/:id',
-  authorize(['admin']),
-  updateShopValidation,
-  validateRequest,
-  shopController.updateShop
+// Upload logo with file for specific shop
+router.post('/shops/:shopId/profile/logo/upload',
+  authenticate,
+  authorizeShopUser,
+  checkShopOwnership,
+  upload.single('logo'),
+  shopController.uploadLogo
 );
 
-// Update shop status
-router.patch('/admin/:id/status',
-  authorize(['admin']),
-  updateStatusValidation,
-  validateRequest,
-  shopController.updateShopStatus
+// Update location (with Google Maps coordinates)
+router.patch('/shops/:shopId/profile/location',
+  authenticate,
+  authorizeShopUser,
+  checkShopOwnership,
+  shopController.updateLocation
 );
 
-// Validate shop (pending -> validated)
-router.patch('/admin/:id/validate',
-  authorize(['admin']),
-  shopIdValidation,
-  validateRequest,
-  shopController.validateShop
+// Update business hours
+router.patch('/shops/:shopId/profile/hours',
+  authenticate,
+  authorizeShopUser,
+  checkShopOwnership,
+  shopController.updateBusinessHours
 );
 
-// Activate shop
-router.patch('/admin/:id/activate',
-  authorize(['admin']),
-  shopIdValidation,
-  validateRequest,
-  shopController.activateShop
+// Check if shop is open
+router.get('/shops/:shopId/open-status',
+  authenticate,
+  authorizeShopUser,
+  checkShopOwnership,
+  shopController.checkOpenStatus
 );
 
-// Deactivate shop
-router.patch('/admin/:id/deactivate',
-  authorize(['admin']),
-  statusReasonValidation,
-  validateRequest,
-  shopController.deactivateShop
+// Public route - Get shops near location (for customers)
+router.get('/shops/nearby',
+  shopController.getShopsNearby
 );
 
-// Suspend shop
-router.patch('/admin/:id/suspend',
-  authorize(['admin']),
-  statusReasonValidation,
-  validateRequest,
-  shopController.suspendShop
-);
-
-// Delete shop
-router.delete('/admin/:id',
-  authorize(['admin']),
-  shopIdValidation,
-  validateRequest,
-  shopController.deleteShop
-);
-
-// ============================================
-// CATEGORY MANAGEMENT
-// ============================================
-
-// Add category to shop
-router.post('/admin/:id/categories',
-  authorize(['admin']),
-  addCategoryValidation,
-  validateRequest,
-  shopController.addCategory
-);
-
-// Remove category from shop
-router.delete('/admin/:id/categories/:categoryId',
-  authorize(['admin']),
-  param('id').isMongoId().withMessage('Invalid shop ID'),
-  param('categoryId').isMongoId().withMessage('Invalid category ID'),
-  validateRequest,
-  shopController.removeCategory
-);
-
-// ============================================
-// USER MANAGEMENT
-// ============================================
-
-// Add user to shop
-router.post('/admin/:id/users',
-  authorize(['admin']),
-  addUserValidation,
-  validateRequest,
-  shopController.addUser
-);
-
-// Remove user from shop
-router.delete('/admin/:id/users/:userId',
-  authorize(['admin']),
-  param('id').isMongoId().withMessage('Invalid shop ID'),
-  param('userId').isMongoId().withMessage('Invalid user ID'),
-  validateRequest,
-  shopController.removeUser
-);
-
-// Update user role in shop
-router.patch('/admin/:id/users/:userId/role',
-  authorize(['admin']),
-  updateUserRoleValidation,
-  validateRequest,
-  shopController.updateUserRole
+// Public route - Get public shop profile
+router.get('/shops/:shopId/public',
+  shopController.getProfile
 );
 
 module.exports = router;

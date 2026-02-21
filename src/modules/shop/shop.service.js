@@ -1,255 +1,204 @@
-const shopRepository = require('./shop.repository');
-const { ValidationError, NotFoundError, ForbiddenError } = require('../../shared/errors/custom-errors');
+const { ShopProfile } = require('./shop.model');
+const { NotFoundError, ValidationError } = require('../../shared/errors/custom-errors');
 
 class ShopService {
-  /**
-   * Create a new shop
-   */
-  async createShop(shopData) {
-    // Create shop with pending status by default
-    const shop = await shopRepository.create({
-      ...shopData,
-      current_status: {
-        status: 'pending',
-        updated_at: new Date()
+  // Get shop profile by ID
+  async getProfile(shopId) {
+    const profile = await ShopProfile.findOne({ shop_id: shopId });
+    if (!profile) {
+      // Auto-create profile if not exists
+      return this.createDefaultProfile(shopId);
+    }
+    return profile;
+  }
+
+  // Create default profile
+  async createDefaultProfile(shopId) {
+    const profile = new ShopProfile({
+      shop_id: shopId,
+      name: 'Ma Boutique',
+      location: {
+        country: 'MG'
       },
-      created_at: new Date()
+      business_hours: {
+        monday: { open: '08:00', close: '18:00', closed: false },
+        tuesday: { open: '08:00', close: '18:00', closed: false },
+        wednesday: { open: '08:00', close: '18:00', closed: false },
+        thursday: { open: '08:00', close: '18:00', closed: false },
+        friday: { open: '08:00', close: '18:00', closed: false },
+        saturday: { open: '08:00', close: '12:00', closed: false },
+        sunday: { open: '08:00', close: '18:00', closed: true }
+      },
+      contact: {},
+      social_media: {},
+      settings: {
+        currency: 'MGA',
+        timezone: 'Indian/Antananarivo',
+        language: 'fr'
+      }
+    });
+    await profile.save();
+    return profile;
+  }
+
+  // Update shop profile
+  async updateProfile(shopId, data) {
+    let profile = await ShopProfile.findOne({ shop_id: shopId });
+    
+    if (!profile) {
+      // Create if not exists
+      profile = new ShopProfile({
+        shop_id: shopId,
+        ...data
+      });
+    } else {
+      // Update existing
+      Object.assign(profile, data);
+    }
+
+    await profile.save();
+    return profile;
+  }
+
+  // Partial update (PATCH)
+  async patchProfile(shopId, data) {
+    const profile = await ShopProfile.findOne({ shop_id: shopId });
+    if (!profile) {
+      throw new NotFoundError('Profil boutique non trouvé');
+    }
+
+    // Deep merge for nested objects
+    if (data.location) {
+      profile.location = { ...profile.location, ...data.location };
+    }
+    if (data.business_hours) {
+      Object.assign(profile.business_hours, data.business_hours);
+    }
+    if (data.contact) {
+      profile.contact = { ...profile.contact, ...data.contact };
+    }
+    if (data.social_media) {
+      profile.social_media = { ...profile.social_media, ...data.social_media };
+    }
+    if (data.settings) {
+      profile.settings = { ...profile.settings, ...data.settings };
+    }
+
+    // Simple fields
+    const simpleFields = ['name', 'logo', 'description', 'is_active'];
+    simpleFields.forEach(field => {
+      if (data[field] !== undefined) {
+        profile[field] = data[field];
+      }
     });
 
-    return shop;
+    await profile.save();
+    return profile;
   }
 
-  /**
-   * Get shop by ID
-   */
-  async getShopById(id) {
-    const shop = await shopRepository.findById(id);
-    if (!shop) {
-      throw new NotFoundError('Shop not found');
-    }
-    return shop;
+  // Update logo
+  async updateLogo(shopId, logoUrl) {
+    const profile = await ShopProfile.findOneAndUpdate(
+      { shop_id: shopId },
+      { logo: logoUrl, updated_at: new Date() },
+      { new: true, upsert: true }
+    );
+    return profile;
   }
 
-  /**
-   * Get all shops with filters
-   */
-  async getAllShops(filters = {}, options = {}) {
-    return shopRepository.findAll(filters, options);
+  // Update location (with coordinates from Google Maps)
+  async updateLocation(shopId, locationData) {
+    const profile = await ShopProfile.findOne({ shop_id: shopId });
+    if (!profile) {
+      throw new NotFoundError('Profil boutique non trouvé');
+    }
+
+    profile.location = {
+      ...profile.location,
+      ...locationData
+    };
+
+    await profile.save();
+    return profile;
   }
 
-  /**
-   * Get shops by category
-   */
-  async getShopsByCategory(categoryId, filters = {}, options = {}) {
-    return shopRepository.findByCategory(categoryId, filters, options);
+  // Update business hours
+  async updateBusinessHours(shopId, hoursData) {
+    const profile = await ShopProfile.findOne({ shop_id: shopId });
+    if (!profile) {
+      throw new NotFoundError('Profil boutique non trouvé');
+    }
+
+    Object.assign(profile.business_hours, hoursData);
+    await profile.save();
+    return profile;
   }
 
-  /**
-   * Get shops by status
-   */
-  async getShopsByStatus(status, filters = {}, options = {}) {
-    const validStatuses = ['pending', 'validated', 'active', 'deactivated', 'suspended'];
-    if (!validStatuses.includes(status)) {
-      throw new ValidationError(`Invalid status: ${status}. Valid values: ${validStatuses.join(', ')}`);
+  // Check if shop is currently open
+  async isShopOpen(shopId) {
+    const profile = await ShopProfile.findOne({ shop_id: shopId });
+    if (!profile) return null;
+
+    const now = new Date();
+    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const currentDay = dayNames[now.getDay()];
+    const dayHours = profile.business_hours?.[currentDay];
+
+    if (!dayHours || dayHours.closed) {
+      return { open: false, reason: 'closed' };
     }
-    return shopRepository.findByStatus(status, filters, options);
+
+    const currentTime = now.getHours() * 60 + now.getMinutes();
+    const [openHour, openMin] = dayHours.open.split(':').map(Number);
+    const [closeHour, closeMin] = dayHours.close.split(':').map(Number);
+    const openTime = openHour * 60 + openMin;
+    const closeTime = closeHour * 60 + closeMin;
+
+    const isOpen = currentTime >= openTime && currentTime < closeTime;
+    return {
+      open: isOpen,
+      hours: dayHours,
+      next_open: !isOpen ? dayHours.open : null
+    };
   }
 
-  /**
-   * Update shop
-   */
-  async updateShop(id, updateData) {
-    const shop = await this.getShopById(id);
+  // Get shops near location (for customer discovery)
+  async getShopsNearLocation(latitude, longitude, maxDistance = 10000) {
+    // maxDistance in meters (default 10km)
+    const shops = await ShopProfile.find({
+      is_active: true,
+      'location.latitude': { $exists: true },
+      'location.longitude': { $exists: true }
+    }).lean();
 
-    // Prevent status change through update (use specific methods)
-    if (updateData.current_status) {
-      delete updateData.current_status;
-    }
+    // Calculate distance and filter
+    const shopsWithDistance = shops.map(shop => {
+      const distance = this.calculateDistance(
+        latitude, longitude,
+        shop.location.latitude, shop.location.longitude
+      );
+      return { ...shop, distance };
+    });
 
-    const updatedShop = await shopRepository.update(id, updateData);
-    return updatedShop;
+    return shopsWithDistance
+      .filter(s => s.distance <= maxDistance)
+      .sort((a, b) => a.distance - b.distance);
   }
 
-  /**
-   * Update shop status
-   */
-  async updateShopStatus(id, status, reason = '') {
-    const shop = await this.getShopById(id);
+  // Calculate distance using Haversine formula
+  calculateDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371e3; // Earth radius in meters
+    const φ1 = lat1 * Math.PI / 180;
+    const φ2 = lat2 * Math.PI / 180;
+    const Δφ = (lat2 - lat1) * Math.PI / 180;
+    const Δλ = (lon2 - lon1) * Math.PI / 180;
 
-    const validStatuses = ['pending', 'validated', 'active', 'deactivated', 'suspended'];
-    if (!validStatuses.includes(status)) {
-      throw new ValidationError(`Invalid status: ${status}. Valid values: ${validStatuses.join(', ')}`);
-    }
+    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+              Math.cos(φ1) * Math.cos(φ2) *
+              Math.sin(Δλ/2) * Math.sin(Δλ/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 
-    const updatedShop = await shopRepository.updateStatus(id, status, reason);
-    return updatedShop;
-  }
-
-  /**
-   * Validate shop (pending -> validated)
-   */
-  async validateShop(id) {
-    const shop = await this.getShopById(id);
-
-    if (shop.current_status?.status !== 'pending') {
-      throw new ValidationError(`Shop must be in pending status to be validated. Current status: ${shop.current_status?.status}`);
-    }
-
-    const validatedShop = await shopRepository.validate(id);
-    return validatedShop;
-  }
-
-  /**
-   * Activate shop
-   */
-  async activateShop(id) {
-    const shop = await this.getShopById(id);
-
-    if (shop.current_status?.status === 'active') {
-      throw new ValidationError('Shop is already active');
-    }
-
-    const activatedShop = await shopRepository.activate(id);
-    return activatedShop;
-  }
-
-  /**
-   * Deactivate shop
-   */
-  async deactivateShop(id, reason = '') {
-    const shop = await this.getShopById(id);
-
-    if (shop.current_status?.status === 'deactivated') {
-      throw new ValidationError('Shop is already deactivated');
-    }
-
-    if (!reason) {
-      throw new ValidationError('Reason is required to deactivate a shop');
-    }
-
-    const deactivatedShop = await shopRepository.deactivate(id, reason);
-    return deactivatedShop;
-  }
-
-  /**
-   * Suspend shop
-   */
-  async suspendShop(id, reason = '') {
-    const shop = await this.getShopById(id);
-
-    if (shop.current_status?.status === 'suspended') {
-      throw new ValidationError('Shop is already suspended');
-    }
-
-    if (!reason) {
-      throw new ValidationError('Reason is required to suspend a shop');
-    }
-
-    const suspendedShop = await shopRepository.suspend(id, reason);
-    return suspendedShop;
-  }
-
-  /**
-   * Delete shop
-   */
-  async deleteShop(id) {
-    const shop = await this.getShopById(id);
-    await shopRepository.delete(id);
-    return { message: 'Shop deleted successfully' };
-  }
-
-  /**
-   * Add category to shop
-   */
-  async addCategoryToShop(shopId, categoryId, categoryName) {
-    const shop = await shopRepository.addCategory(shopId, categoryId, categoryName);
-    if (!shop) {
-      throw new NotFoundError('Shop not found');
-    }
-    return shop;
-  }
-
-  /**
-   * Remove category from shop
-   */
-  async removeCategoryFromShop(shopId, categoryId) {
-    const shop = await shopRepository.removeCategory(shopId, categoryId);
-    if (!shop) {
-      throw new NotFoundError('Shop not found');
-    }
-    return shop;
-  }
-
-  /**
-   * Add user to shop
-   */
-  async addUserToShop(shopId, userId, role, firstName, lastName) {
-    const validRoles = ['MANAGER_SHOP', 'STAFF'];
-    if (!validRoles.includes(role)) {
-      throw new ValidationError(`Invalid role: ${role}. Valid values: ${validRoles.join(', ')}`);
-    }
-
-    const shop = await shopRepository.addUser(shopId, userId, role, firstName, lastName);
-    if (!shop) {
-      throw new NotFoundError('Shop not found');
-    }
-    return shop;
-  }
-
-  /**
-   * Remove user from shop
-   */
-  async removeUserFromShop(shopId, userId) {
-    const shop = await shopRepository.removeUser(shopId, userId);
-    if (!shop) {
-      throw new NotFoundError('Shop not found');
-    }
-    return shop;
-  }
-
-  /**
-   * Update user role in shop
-   */
-  async updateUserRole(shopId, userId, newRole) {
-    const validRoles = ['MANAGER_SHOP', 'STAFF'];
-    if (!validRoles.includes(newRole)) {
-      throw new ValidationError(`Invalid role: ${newRole}. Valid values: ${validRoles.join(', ')}`);
-    }
-
-    const shop = await shopRepository.updateUserRole(shopId, userId, newRole);
-    if (!shop) {
-      throw new NotFoundError('Shop not found');
-    }
-    return shop;
-  }
-
-  /**
-   * Get shop statistics
-   */
-  async getShopStats() {
-    return shopRepository.getStats();
-  }
-
-  /**
-   * Search shops
-   */
-  async searchShops(searchTerm, filters = {}, options = {}) {
-    if (!searchTerm || searchTerm.trim().length === 0) {
-      throw new ValidationError('Search term is required');
-    }
-
-    return shopRepository.search(searchTerm, filters, options);
-  }
-
-  /**
-   * Update review stats
-   */
-  async updateReviewStats(shopId, averageRating, totalReviews) {
-    const shop = await shopRepository.updateReviewStats(shopId, averageRating, totalReviews);
-    if (!shop) {
-      throw new NotFoundError('Shop not found');
-    }
-    return shop;
+    return R * c;
   }
 }
 
