@@ -28,7 +28,7 @@ async function setupDatabase() {
               last_name: { bsonType: 'string' },
               phone: { bsonType: 'string' },
               registered_at: { bsonType: 'date' },
-              user_type: { enum: ['admin', 'brand', 'shop', 'buyer'] },
+              user_type: { enum: ['admin', 'shop', 'buyer'] },
               profile_photo: { bsonType: 'string' },
               current_status: {
                 bsonType: 'object',
@@ -79,62 +79,7 @@ async function setupDatabase() {
     }
 
     // ============================================================================
-    // 2. BRANDS COLLECTION
-    // ============================================================================
-    console.log('\n📦 Creating brands collection...');
-    try {
-      await db.createCollection('brands', {
-        validator: {
-          $jsonSchema: {
-            bsonType: 'object',
-            required: ['brand_name', 'created_at'],
-            properties: {
-              brand_name: { bsonType: 'string' },
-              description: { bsonType: 'string' },
-              logo: { bsonType: 'string' },
-              created_at: { bsonType: 'date' },
-              users: {
-                bsonType: 'array',
-                items: {
-                  bsonType: 'object',
-                  required: ['user_id', 'role', 'assigned_at'],
-                  properties: {
-                    user_id: { bsonType: 'objectId' },
-                    role: { enum: ['OWNER', 'ADMIN_BRAND'] },
-                    assigned_at: { bsonType: 'date' },
-                    first_name: { bsonType: 'string' },
-                    last_name: { bsonType: 'string' },
-                    email: { bsonType: 'string' }
-                  }
-                }
-              },
-              update_history: {
-                bsonType: 'array',
-                items: {
-                  bsonType: 'object',
-                  properties: {
-                    brand_name: { bsonType: 'string' },
-                    description: { bsonType: 'string' },
-                    logo: { bsonType: 'string' },
-                    updated_at: { bsonType: 'date' }
-                  }
-                }
-              }
-            }
-          }
-        }
-      });
-      await db.collection('brands').createIndex({ brand_name: 1 });
-      await db.collection('brands').createIndex({ 'users.user_id': 1 });
-      console.log('✓ Brands collection created with indexes');
-    } catch (err) {
-      if (err.code === 48) {
-        console.log('⚠ Brands collection already exists');
-      } else throw err;
-    }
-
-    // ============================================================================
-    // 3. SHOP BOXES COLLECTION
+    // 2. SHOP BOXES COLLECTION
     // ============================================================================
     console.log('\n📦 Creating shop_boxes collection...');
     try {
@@ -186,7 +131,7 @@ async function setupDatabase() {
     }
 
     // ============================================================================
-    // 4. SHOP CATEGORIES COLLECTION
+    // 3. SHOP CATEGORIES COLLECTION
     // ============================================================================
     console.log('\n📦 Creating shop_categories collection...');
     try {
@@ -218,7 +163,7 @@ async function setupDatabase() {
     }
 
     // ============================================================================
-    // 5. SHOPS COLLECTION
+    // 4. SHOPS COLLECTION
     // ============================================================================
     console.log('\n📦 Creating shops collection...');
     try {
@@ -226,7 +171,7 @@ async function setupDatabase() {
         validator: {
           $jsonSchema: {
             bsonType: 'object',
-            required: ['shop_name', 'brand_id', 'created_at'],
+            required: ['shop_name', 'created_at'],
             properties: {
               shop_name: { bsonType: 'string' },
               description: { bsonType: 'string' },
@@ -245,9 +190,6 @@ async function setupDatabase() {
                 }
               },
               created_at: { bsonType: 'date' },
-              brand_id: { bsonType: 'objectId' },
-              brand_name: { bsonType: 'string' },
-              brand_logo: { bsonType: 'string' },
               users: {
                 bsonType: 'array',
                 items: {
@@ -317,7 +259,6 @@ async function setupDatabase() {
           }
         }
       });
-      await db.collection('shops').createIndex({ brand_id: 1 });
       await db.collection('shops').createIndex({ 'current_status.status': 1 });
       await db.collection('shops').createIndex({ 'categories.category_id': 1 });
       await db.collection('shops').createIndex({ 'users.user_id': 1 });
@@ -330,7 +271,7 @@ async function setupDatabase() {
     }
 
     // ============================================================================
-    // 6. SHOP REVIEWS COLLECTION
+    // 5. SHOP REVIEWS COLLECTION
     // ============================================================================
     console.log('\n📦 Creating shop_reviews collection...');
     try {
@@ -362,7 +303,7 @@ async function setupDatabase() {
     }
 
     // ============================================================================
-    // 7. SHOP FAVORITES COLLECTION
+    // 6. SHOP FAVORITES COLLECTION
     // ============================================================================
     console.log('\n📦 Creating shop_favorites collection...');
     try {
@@ -391,7 +332,7 @@ async function setupDatabase() {
     }
 
     // ============================================================================
-    // 8. LEASE CONTRACTS COLLECTION
+    // 7. LEASE CONTRACTS COLLECTION
     // ============================================================================
     console.log('\n📦 Creating lease_contracts collection...');
     try {
@@ -457,7 +398,7 @@ async function setupDatabase() {
     }
 
     // ============================================================================
-    // 9. RENT PAYMENTS COLLECTION
+    // 8. RENT PAYMENTS COLLECTION
     // ============================================================================
     console.log('\n📦 Creating rent_payments collection...');
     try {
@@ -509,7 +450,7 @@ async function setupDatabase() {
     }
 
     // ============================================================================
-    // 10. PRODUCT CATEGORIES COLLECTION
+    // 9. PRODUCT CATEGORIES COLLECTION
     // ============================================================================
     console.log('\n📦 Creating product_categories collection...');
     try {
@@ -540,7 +481,7 @@ async function setupDatabase() {
     }
 
     // ============================================================================
-    // 11. PRODUCTS COLLECTION
+    // 10. PRODUCTS COLLECTION
     // ============================================================================
     console.log('\n📦 Creating products collection...');
     try {
@@ -693,7 +634,7 @@ async function setupDatabase() {
     }
 
     // ============================================================================
-    // 12. PRODUCT FAVORITES COLLECTION
+    // 11. PRODUCT FAVORITES COLLECTION
     // ============================================================================
     console.log('\n📦 Creating product_favorites collection...');
     try {
@@ -723,7 +664,7 @@ async function setupDatabase() {
     }
 
     // ============================================================================
-    // 13. PROMOTIONS COLLECTION
+    // 12. PROMOTIONS COLLECTION
     // ============================================================================
     console.log('\n📦 Creating promotions collection...');
     try {
@@ -761,7 +702,7 @@ async function setupDatabase() {
     }
 
     // ============================================================================
-    // 14. STOCKS COLLECTION
+    // 13. STOCKS COLLECTION
     // ============================================================================
     console.log('\n📦 Creating stocks collection...');
     try {
@@ -804,7 +745,7 @@ async function setupDatabase() {
     }
 
     // ============================================================================
-    // 15. STOCK MOVEMENTS COLLECTION
+    // 14. STOCK MOVEMENTS COLLECTION
     // ============================================================================
     console.log('\n📦 Creating stock_movements collection...');
     try {
@@ -837,7 +778,7 @@ async function setupDatabase() {
     }
 
     // ============================================================================
-    // 16. ORDERS COLLECTION
+    // 15. ORDERS COLLECTION
     // ============================================================================
     console.log('\n📦 Creating orders collection...');
     try {
@@ -970,7 +911,7 @@ async function setupDatabase() {
     }
 
     // ============================================================================
-    // 17. EVENTS COLLECTION
+    // 16. EVENTS COLLECTION
     // ============================================================================
     console.log('\n📦 Creating events collection...');
     try {
@@ -1029,7 +970,7 @@ async function setupDatabase() {
     }
 
     // ============================================================================
-    // 18. NOTIFICATIONS COLLECTION
+    // 17. NOTIFICATIONS COLLECTION
     // ============================================================================
     console.log('\n📦 Creating notifications collection...');
     try {
@@ -1061,12 +1002,12 @@ async function setupDatabase() {
     }
 
     console.log('\n✅ Database setup completed successfully!');
-    console.log('\n📊 Created 18 collections with validators and indexes:');
-    console.log('   1. users\n   2. brands\n   3. shop_boxes\n   4. shop_categories');
-    console.log('   5. shops\n   6. shop_reviews\n   7. shop_favorites\n   8. lease_contracts');
-    console.log('   9. rent_payments\n  10. product_categories\n  11. products\n  12. product_favorites');
-    console.log('  13. promotions\n  14. stocks\n  15. stock_movements\n  16. orders');
-    console.log('  17. events\n  18. notifications');
+    console.log('\n📊 Created 17 collections with validators and indexes:');
+    console.log('   1. users\n   2. shop_boxes\n   3. shop_categories');
+    console.log('   4. shops\n   5. shop_reviews\n   6. shop_favorites\n   7. lease_contracts');
+    console.log('   8. rent_payments\n   9. product_categories\n  10. products\n  11. product_favorites');
+    console.log('  12. promotions\n  13. stocks\n  14. stock_movements\n  15. orders');
+    console.log('  16. events\n  17. notifications');
 
   } catch (error) {
     console.error('\n❌ Error setting up database:', error);
