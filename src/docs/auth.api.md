@@ -17,7 +17,7 @@ The Authentication API handles user registration (signup), login, token manageme
 
 ### 1. Signup (Register New User)
 
-Register a new buyer account. Only buyers can self-register; other user types (admin, brand, shop) must be created by administrators.
+Register a new buyer account. Only buyers can self-register; other user types (admin, shop) must be created by administrators.
 
 **Endpoint**: `POST /api/auth/signup`
 
@@ -287,8 +287,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1...
 ## User Types
 
 - `admin` - System administrators (created by system)
-- `brand` - Brand managers/owners (created by admin)
-- `shop` - Shop managers/staff (created by admin/brand)
+- `shop` - Shop managers/staff (created by admin)
 - `buyer` - Regular customers (can self-register)
 
 ## Security Notes

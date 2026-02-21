@@ -44,7 +44,7 @@ async function migrateShopsEmployees() {
         validator: {
           $jsonSchema: {
             bsonType: 'object',
-            required: ['shop_name', 'brand_id', 'created_at'],
+            required: ['shop_name', 'created_at'],
             properties: {
               shop_name: { bsonType: 'string' },
               description: { bsonType: 'string' },
@@ -63,9 +63,6 @@ async function migrateShopsEmployees() {
                 }
               },
               created_at: { bsonType: 'date' },
-              brand_id: { bsonType: 'objectId' },
-              brand_name: { bsonType: 'string' },
-              brand_logo: { bsonType: 'string' },
               users: {
                 bsonType: 'array',
                 items: {

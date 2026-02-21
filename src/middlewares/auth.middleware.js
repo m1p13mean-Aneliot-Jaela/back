@@ -100,8 +100,8 @@ const checkShopOwnership = (req, res, next) => {
       throw new UnauthorizedError(MESSAGES.AUTH.UNAUTHORIZED);
     }
 
-    // Admins and brands can manage any shop
-    if (req.user.user_type === 'admin' || req.user.user_type === 'brand') {
+    // Admins can manage any shop
+    if (req.user.user_type === 'admin') {
       return next();
     }
 
@@ -132,8 +132,8 @@ const checkShopManagerRole = (req, res, next) => {
       throw new UnauthorizedError(MESSAGES.AUTH.UNAUTHORIZED);
     }
 
-    // Admins and brands can manage any shop
-    if (req.user.user_type === 'admin' || req.user.user_type === 'brand') {
+    // Admins can manage any shop
+    if (req.user.user_type === 'admin') {
       return next();
     }
 
@@ -174,8 +174,8 @@ const checkEmployeeOwnership = async (req, res, next) => {
       throw new UnauthorizedError(MESSAGES.AUTH.UNAUTHORIZED);
     }
 
-    // Admins and brands can manage any employee
-    if (req.user.user_type === 'admin' || req.user.user_type === 'brand') {
+    // Admins can manage any employee
+    if (req.user.user_type === 'admin') {
       return next();
     }
 

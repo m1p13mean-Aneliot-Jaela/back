@@ -6,7 +6,7 @@ Express.js REST API with modular architecture and MongoDB.
 
 - Modular architecture by domain
 - **JWT Authentication** (JSON Web Tokens)
-- User management with role-based access control (admin, brand, shop, buyer)
+- User management with role-based access control (admin, shop, buyer)
 - MongoDB with Mongoose ODM
 - Input validation with express-validator
 - Comprehensive error handling
@@ -165,7 +165,6 @@ The API uses **JWT (JSON Web Tokens)** for authentication.
 ### User Types
 
 - `admin` - System administrators
-- `brand` - Brand managers/owners
 - `shop` - Shop managers/staff
 - `buyer` - Regular customers (can self-register)
 

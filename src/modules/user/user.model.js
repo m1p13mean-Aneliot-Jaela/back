@@ -34,7 +34,7 @@ const userSchema = new mongoose.Schema({
   },
   user_type: {
     type: String,
-    enum: ['admin', 'brand', 'shop', 'buyer'],
+    enum: ['admin', 'shop', 'buyer'],
     required: true
   },
   profile_photo: {

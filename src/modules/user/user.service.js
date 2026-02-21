@@ -66,7 +66,6 @@ class UserService {
       total: await userRepository.count(),
       byType: {
         admin: await userRepository.count({ user_type: 'admin' }),
-        brand: await userRepository.count({ user_type: 'brand' }),
         shop: await userRepository.count({ user_type: 'shop' }),
         buyer: await userRepository.count({ user_type: 'buyer' })
       },
