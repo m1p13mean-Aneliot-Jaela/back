@@ -53,7 +53,14 @@ const authorize = (allowedRoles = []) => {
         throw new UnauthorizedError(MESSAGES.AUTH.UNAUTHORIZED);
       }
 
-      if (!allowedRoles.includes(req.user.user_type)) {
+      // Handle both array format and object format { user_type: 'shop' }
+      const roles = Array.isArray(allowedRoles) 
+        ? allowedRoles 
+        : allowedRoles.user_type 
+          ? [allowedRoles.user_type]
+          : [];
+
+      if (!roles.includes(req.user.user_type)) {
         throw new ForbiddenError(MESSAGES.AUTH.FORBIDDEN);
       }
 

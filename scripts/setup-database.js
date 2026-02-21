@@ -488,91 +488,134 @@ async function setupDatabase() {
       await db.createCollection('products', {
         validator: {
           $jsonSchema: {
-            bsonType: 'object',
-            required: ['shop_id', 'name', 'unit_price', 'created_at'],
+            bsonType: "object",
+            required: ["shop_id", "name", "unit_price", "created_at", "sku"],
             properties: {
-              shop_id: { bsonType: 'objectId' },
-              shop_name: { bsonType: 'string' },
-              name: { bsonType: 'string' },
-              description: { bsonType: 'string' },
-              unit_price: { bsonType: 'decimal' },
-              cost_price: { bsonType: 'decimal' },
-              image_url: { bsonType: 'string' },
-              created_at: { bsonType: 'date' },
+              _id: { "bsonType": "objectId" },
+              shop_id: { "bsonType": "objectId" },
+              shop_name: { "bsonType": "string" },
+              sku: { "bsonType": "string", "description": "Stock Keeping Unit, unique reference produit" },
+              name: { "bsonType": "string" },
+              description: { "bsonType": "string" },
+              unit_price: { "bsonType": "decimal" },
+              cost_price: { "bsonType": "decimal" },
+              tags: { "bsonType": "array", "items": { "bsonType": "string" } },
+              image_url: { "bsonType": "string" },
               images: {
-                bsonType: 'array',
-                items: {
-                  bsonType: 'object',
-                  properties: {
-                    image_url: { bsonType: 'string' },
-                    created_at: { bsonType: 'date' }
+                "bsonType": "array",
+                "items": {
+                  "bsonType": "object",
+                  "properties": {
+                    "image_url": { "bsonType": "string" },
+                    "created_at": { "bsonType": "date" }
                   }
                 }
               },
               categories: {
-                bsonType: 'array',
+                "bsonType": "array",
+                "items": {
+                  "bsonType": "object",
+                  "properties": {
+                    "category_id": { "bsonType": "objectId" },
+                    "name": { "bsonType": "string" },
+                    "assigned_at": { "bsonType": "date" }
+                  }
+                }
+              },
+              variants: {
+                bsonType: "array",
                 items: {
-                  bsonType: 'object',
+                  bsonType: "object",
                   properties: {
-                    category_id: { bsonType: 'objectId' },
-                    name: { bsonType: 'string' },
-                    assigned_at: { bsonType: 'date' }
+                    variant_name: { "bsonType": "string" },
+                    unit_price: { "bsonType": "decimal" },
+                    cost_price: { "bsonType": "decimal" },
+                    sku: { "bsonType": "string" },
+                    attributes: {
+                      bsonType: "object",
+                      description: "Ex: taille, couleur, poids, etc."
+                    },
+                    images: {
+                      bsonType: "array",
+                      items: { "bsonType": "string" }
+                    }
                   }
                 }
               },
               current_promo: {
-                bsonType: 'object',
+                bsonType: "object",
                 properties: {
-                  promo_price: { bsonType: 'decimal' },
-                  start_date: { bsonType: 'date' },
-                  end_date: { bsonType: 'date' },
-                  created_at: { bsonType: 'date' }
+                  promo_price: { "bsonType": "decimal" },
+                  start_date: { "bsonType": "date" },
+                  end_date: { "bsonType": "date" },
+                  created_at: { "bsonType": "date" }
                 }
               },
-              promo_history: {
-                bsonType: 'array',
-                items: {
-                  bsonType: 'object',
-                  properties: {
-                    promo_price: { bsonType: 'decimal' },
-                    start_date: { bsonType: 'date' },
-                    end_date: { bsonType: 'date' },
-                    created_at: { bsonType: 'date' }
+              "promo_history": {
+                "bsonType": "array",
+                "items": {
+                  "bsonType": "object",
+                  "properties": {
+                    "promo_price": { "bsonType": "decimal" },
+                    "start_date": { "bsonType": "date" },
+                    "end_date": { "bsonType": "date" },
+                    "created_at": { "bsonType": "date" }
                   }
                 }
               },
-              is_banned: { bsonType: 'bool' },
-              ban_info: {
-                bsonType: 'object',
-                properties: {
-                  reason: { bsonType: 'string' },
-                  created_at: { bsonType: 'date' }
+              "is_banned": { "bsonType": "bool" },
+              "ban_info": {
+                "bsonType": "object",
+                "properties": {
+                  "reason": { "bsonType": "string" },
+                  "created_at": { "bsonType": "date" }
+                }
+              },
+              "current_status": {
+                "bsonType": "object",
+                "properties": {
+                  "status": { "enum": ["DRAFT", "PENDING", "ACTIVE", "REJECTED"] },
+                  "reason": { "bsonType": "string" },
+                  "updated_at": { "bsonType": "date" }
+                }
+              },
+              status_history: {
+                bsonType: "array",
+                items: {
+                  bsonType: "object",
+                  properties: {
+                    status: { "enum": ["DRAFT", "PENDING", "ACTIVE", "REJECTED"] },
+                    reason: { "bsonType": "string" },
+                    updated_at: { "bsonType": "date" }
+                  }
                 }
               },
               reports: {
-                bsonType: 'array',
+                bsonType: "array",
                 items: {
-                  bsonType: 'object',
+                  bsonType: "object",
                   properties: {
-                    cause: { bsonType: 'string' },
-                    created_at: { bsonType: 'date' }
+                    cause: { "bsonType": "string" },
+                    created_at: { "bsonType": "date" }
                   }
                 }
               },
               update_history: {
-                bsonType: 'array',
+                bsonType: "array",
                 items: {
-                  bsonType: 'object',
+                  bsonType: "object",
                   properties: {
-                    name: { bsonType: 'string' },
-                    description: { bsonType: 'string' },
-                    unit_price: { bsonType: 'decimal' },
-                    cost_price: { bsonType: 'decimal' },
-                    image_url: { bsonType: 'string' },
-                    updated_at: { bsonType: 'date' }
+                    name: { "bsonType": "string" },
+                    description: { "bsonType": "string" },
+                    unit_price: { "bsonType": "decimal" },
+                    cost_price: { "bsonType": "decimal" },
+                    image_url: { "bsonType": "string" },
+                    updated_at: { "bsonType": "date" }
                   }
                 }
-              }
+              },
+              created_at: { "bsonType": "date" },
+              updated_at: { "bsonType": "date" }
             }
           }
         }
