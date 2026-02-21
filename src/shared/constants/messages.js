@@ -40,6 +40,30 @@ const MESSAGES = {
     EMAIL_EXISTS: 'Email already exists',
     PROFILE_UPDATED: 'Profile updated successfully',
     STATUS_UPDATED: 'User status updated successfully'
+  },
+
+  // Shop messages
+  SHOP: {
+    NOT_FOUND: 'Shop not found',
+    CREATED: 'Shop created successfully',
+    UPDATED: 'Shop updated successfully',
+    DELETED: 'Shop deleted successfully',
+    RESTORED: 'Shop restored successfully',
+    VALIDATED: 'Shop validated successfully',
+    ACTIVATED: 'Shop activated successfully',
+    DEACTIVATED: 'Shop deactivated successfully',
+    REJECTED: 'Shop rejected successfully',
+    REGISTRATION_EXISTS: 'A shop with this registration number already exists',
+    INVALID_CATEGORY: 'Invalid category',
+    INVALID_STATUS: 'Invalid status',
+    ALREADY_DELETED: 'Shop is already deleted',
+    ALREADY_ACTIVE: 'Shop is already active',
+    ALREADY_SUSPENDED: 'Shop is already suspended',
+    ALREADY_REJECTED: 'Shop is already rejected',
+    CANNOT_UPDATE_DELETED: 'Cannot update a deleted shop',
+    CANNOT_VALIDATE_DELETED: 'Cannot validate a deleted shop',
+    MUST_BE_PENDING: 'Shop must be in PENDING status to be validated',
+    REASON_REQUIRED: 'Reason is required'
   }
 };
 

@@ -141,7 +141,7 @@ Authorization: Bearer admin-access-token
 **Query Parameters**:
 - `page` (optional): Page number (default: 1)
 - `limit` (optional): Items per page (default: 10)
-- `user_type` (optional): Filter by user type (admin, brand, shop, buyer)
+- `user_type` (optional): Filter by user type (admin, shop, buyer)
 - `status` (optional): Filter by status (active, suspended, blocked)
 
 **Example Request**:
@@ -415,7 +415,6 @@ Authorization: Bearer admin-access-token
     "total": 1247,
     "byType": {
       "admin": 5,
-      "brand": 42,
       "shop": 150,
       "buyer": 1050
     },
@@ -439,7 +438,7 @@ Authorization: Bearer admin-access-token
 | User Type | Can Access Profile | Can Update Profile | Can Access Admin Endpoints |
 |-----------|-------------------|-------------------|---------------------------|
 | `admin` | ✅ | ✅ | ✅ |
-| `brand` | ✅ | ✅ | ❌ |
+
 | `shop` | ✅ | ✅ | ❌ |
 | `buyer` | ✅ | ✅ | ❌ |
 

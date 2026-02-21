@@ -30,7 +30,6 @@ async function createFirstEmployee() {
         _id: shopId,
         shop_name: SHOP_NAME,
         description: 'Boutique de test',
-        brand_id: new ObjectId(),
         created_at: new Date(),
         users: [],
         current_status: {

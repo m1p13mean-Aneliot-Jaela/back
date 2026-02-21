@@ -56,12 +56,11 @@ Manages user profiles and administration.
 
 ## User Types
 
-The system supports four user types with different permissions:
+The system supports three user types with different permissions:
 
 | User Type | Description | Can Self-Register | Access Level |
 |-----------|-------------|-------------------|--------------|
 | `admin` | System administrators | ❌ | Full access to all endpoints |
-| `brand` | Brand managers/owners | ❌ | Manage their brands and shops |
 | `shop` | Shop managers/staff | ❌ | Manage their shop operations |
 | `buyer` | Regular customers | ✅ | Access customer features |
 
