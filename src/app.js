@@ -79,6 +79,7 @@ const productRoutes = require('./modules/product/product.routes');
 const stockRoutes = require('./modules/stock/stock.routes');
 const promotionRoutes = require('./modules/promotion/promotion.routes');
 const deliveryRoutes = require('./modules/delivery/delivery.routes');
+const orderRoutes = require('./modules/order/order.routes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
@@ -89,6 +90,7 @@ app.use('/api/products', productRoutes);
 app.use('/api', stockRoutes);
 app.use('/api', promotionRoutes);
 app.use('/api', deliveryRoutes);
+app.use('/api', orderRoutes);
 
 // 404 handler
 app.use((req, res) => {
