@@ -1,5 +1,6 @@
 const userRepository = require('./user.repository');
 const { ValidationError, NotFoundError } = require('../../shared/errors/custom-errors');
+const { Shop } = require('../shop/shop.model');
 
 class UserService {
   async getUserById(id) {
@@ -76,6 +77,47 @@ class UserService {
       }
     };
     return stats;
+  }
+
+  async assignUserToShop(userId, assignmentData) {
+    const { shop_id, role } = assignmentData;
+
+    // Verify user exists
+    const user = await userRepository.findById(userId);
+    if (!user) {
+      throw new NotFoundError('User not found');
+    }
+
+    // Verify shop exists
+    const shop = await Shop.findById(shop_id);
+    if (!shop) {
+      throw new NotFoundError('Shop not found');
+    }
+
+    // Check if user is already assigned to this shop
+    const existingAssignment = shop.users.find(
+      u => u.user_id.toString() === userId
+    );
+
+    if (existingAssignment) {
+      // Update role if already assigned
+      existingAssignment.role = role;
+      existingAssignment.assigned_at = new Date();
+      existingAssignment.first_name = user.first_name;
+      existingAssignment.last_name = user.last_name;
+    } else {
+      // Add new user assignment
+      shop.users.push({
+        user_id: userId,
+        role: role,
+        assigned_at: new Date(),
+        first_name: user.first_name,
+        last_name: user.last_name
+      });
+    }
+
+    await shop.save();
+    return shop;
   }
 }
 
