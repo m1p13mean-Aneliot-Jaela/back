@@ -3,6 +3,7 @@ const helmet = require('helmet');
 const cors = require('cors');
 const compression = require('compression');
 const cookieParser = require('cookie-parser');
+const path = require('path');
 const config = require('./config/env');
 const logger = require('./config/logger');
 const errorMiddleware = require('./middlewares/error.middleware');
@@ -10,7 +11,9 @@ const errorMiddleware = require('./middlewares/error.middleware');
 const app = express();
 
 // Security middleware
-app.use(helmet());
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' }
+}));
 
 // Cookie parsing middleware
 app.use(cookieParser());
@@ -48,6 +51,9 @@ app.use(express.urlencoded({ extended: true }));
 // Compression middleware
 app.use(compression());
 
+// Static files serving (uploads)
+app.use('/uploads', express.static(path.join(__dirname, '../../uploads')));
+
 // Request logging middleware
 app.use((req, res, next) => {
   logger.info(`${req.method} ${req.path}`);
@@ -71,6 +77,7 @@ const productRoutes = require('./modules/product/product.routes');
 const stockRoutes = require('./modules/stock/stock.routes');
 const promotionRoutes = require('./modules/promotion/promotion.routes');
 const deliveryRoutes = require('./modules/delivery/delivery.routes');
+const shopRoutes = require('./modules/shop/shop.routes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
@@ -79,6 +86,7 @@ app.use('/api/products', productRoutes);
 app.use('/api', stockRoutes);
 app.use('/api', promotionRoutes);
 app.use('/api', deliveryRoutes);
+app.use('/api', shopRoutes);
 
 // 404 handler
 app.use((req, res) => {

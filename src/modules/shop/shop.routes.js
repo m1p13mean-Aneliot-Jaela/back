@@ -1,0 +1,157 @@
+const express = require('express');
+const router = express.Router();
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+const shopController = require('./shop.controller');
+const { authenticate, authorize } = require('../../middlewares/auth.middleware');
+const { checkShopOwnership } = require('../../middlewares/auth.middleware');
+
+// Configure multer for logo uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const shopId = req.params.shopId || req.user?.shop_id;
+    const uploadDir = path.join(__dirname, '../../../../uploads/shops', shopId?.toString() || 'temp', 'logo');
+    
+    // Create directory if it doesn't exist
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname);
+    cb(null, 'logo-' + uniqueSuffix + ext);
+  }
+});
+
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB limit
+  fileFilter: (req, file, cb) => {
+    // Accept only images
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'));
+    }
+  }
+});
+
+// Middleware to allow shop users (similar to delivery routes)
+const authorizeShopUser = (req, res, next) => {
+  try {
+    if (!req.user) {
+      throw new Error('Unauthorized');
+    }
+    if (['admin', 'brand', 'shop'].includes(req.user.user_type)) {
+      return next();
+    }
+    throw new Error('Forbidden');
+  } catch (error) {
+    return res.status(403).json({ success: false, message: 'Access denied' });
+  }
+};
+
+// ========== SHOP PROFILE ROUTES ==========
+
+// Get my shop profile (from auth token)
+router.get('/shops/me/profile',
+  authenticate,
+  authorizeShopUser,
+  shopController.getMyProfile
+);
+
+// Update my shop profile
+router.patch('/shops/me/profile',
+  authenticate,
+  authorizeShopUser,
+  shopController.updateMyProfile
+);
+
+// Upload logo with file (multipart/form-data)
+router.post('/shops/me/profile/logo/upload',
+  authenticate,
+  authorizeShopUser,
+  upload.single('logo'),
+  shopController.uploadLogo
+);
+
+// Get shop profile by ID
+router.get('/shops/:shopId/profile',
+  authenticate,
+  authorizeShopUser,
+  checkShopOwnership,
+  shopController.getProfile
+);
+
+// Full update (PUT)
+router.put('/shops/:shopId/profile',
+  authenticate,
+  authorizeShopUser,
+  checkShopOwnership,
+  shopController.updateProfile
+);
+
+// Partial update (PATCH)
+router.patch('/shops/:shopId/profile',
+  authenticate,
+  authorizeShopUser,
+  checkShopOwnership,
+  shopController.patchProfile
+);
+
+// Update logo URL
+router.patch('/shops/:shopId/profile/logo',
+  authenticate,
+  authorizeShopUser,
+  checkShopOwnership,
+  shopController.updateLogo
+);
+
+// Upload logo with file for specific shop
+router.post('/shops/:shopId/profile/logo/upload',
+  authenticate,
+  authorizeShopUser,
+  checkShopOwnership,
+  upload.single('logo'),
+  shopController.uploadLogo
+);
+
+// Update location (with Google Maps coordinates)
+router.patch('/shops/:shopId/profile/location',
+  authenticate,
+  authorizeShopUser,
+  checkShopOwnership,
+  shopController.updateLocation
+);
+
+// Update business hours
+router.patch('/shops/:shopId/profile/hours',
+  authenticate,
+  authorizeShopUser,
+  checkShopOwnership,
+  shopController.updateBusinessHours
+);
+
+// Check if shop is open
+router.get('/shops/:shopId/open-status',
+  authenticate,
+  authorizeShopUser,
+  checkShopOwnership,
+  shopController.checkOpenStatus
+);
+
+// Public route - Get shops near location (for customers)
+router.get('/shops/nearby',
+  shopController.getShopsNearby
+);
+
+// Public route - Get public shop profile
+router.get('/shops/:shopId/public',
+  shopController.getProfile
+);
+
+module.exports = router;
