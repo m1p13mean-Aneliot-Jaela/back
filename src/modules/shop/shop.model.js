@@ -1,78 +1,88 @@
 const mongoose = require('mongoose');
 
-const businessHoursSchema = new mongoose.Schema({
+// Opening time schema (simple open/close times)
+const openingHoursSchema = new mongoose.Schema({
   open: { type: String, default: '08:00' },
-  close: { type: String, default: '18:00' },
-  closed: { type: Boolean, default: false }
+  close: { type: String, default: '18:00' }
 }, { _id: false });
 
-const shopProfileSchema = new mongoose.Schema({
-  // Reference to the shop/user
-  shop_id: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    required: true, 
-    unique: true,
-    index: true 
-  },
-  
+const shopSchema = new mongoose.Schema({
   // Basic Info
-  name: { type: String, required: true },
-  logo: { type: String }, // URL to logo image
+  shop_name: { type: String, required: true },
   description: { type: String },
+  logo: { type: String },
   
-  // Location
-  location: {
-    address: { type: String },
-    city: { type: String },
-    postal_code: { type: String },
-    country: { type: String, default: 'MG' }, // Madagascar
-    latitude: { type: Number },
-    longitude: { type: Number }
+  // Mall location (string identifier, not GPS)
+  mall_location: { type: String },
+  
+  // Opening time (simple open/close per day)
+  opening_time: {
+    monday: { type: openingHoursSchema, default: () => ({ open: '08:00', close: '18:00' }) },
+    tuesday: { type: openingHoursSchema, default: () => ({ open: '08:00', close: '18:00' }) },
+    wednesday: { type: openingHoursSchema, default: () => ({ open: '08:00', close: '18:00' }) },
+    thursday: { type: openingHoursSchema, default: () => ({ open: '08:00', close: '18:00' }) },
+    friday: { type: openingHoursSchema, default: () => ({ open: '08:00', close: '18:00' }) },
+    saturday: { type: openingHoursSchema, default: () => ({ open: '08:00', close: '12:00' }) },
+    sunday: { type: openingHoursSchema, default: () => ({ open: '08:00', close: '18:00' }) }
   },
   
-  // Business Hours
-  business_hours: {
-    monday: { type: businessHoursSchema, default: () => ({ open: '08:00', close: '18:00', closed: false }) },
-    tuesday: { type: businessHoursSchema, default: () => ({ open: '08:00', close: '18:00', closed: false }) },
-    wednesday: { type: businessHoursSchema, default: () => ({ open: '08:00', close: '18:00', closed: false }) },
-    thursday: { type: businessHoursSchema, default: () => ({ open: '08:00', close: '18:00', closed: false }) },
-    friday: { type: businessHoursSchema, default: () => ({ open: '08:00', close: '18:00', closed: false }) },
-    saturday: { type: businessHoursSchema, default: () => ({ open: '08:00', close: '12:00', closed: false }) },
-    sunday: { type: businessHoursSchema, default: () => ({ open: '08:00', close: '18:00', closed: true }) }
+  // Users assigned to shop (managers and staff)
+  users: [{
+    user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    role: { type: String, enum: ['MANAGER_SHOP', 'STAFF'], required: true },
+    assigned_at: { type: Date, default: Date.now },
+    first_name: { type: String },
+    last_name: { type: String }
+  }],
+  
+  // Current status
+  current_status: {
+    status: { 
+      type: String, 
+      enum: ['pending', 'validated', 'active', 'deactivated', 'suspended'],
+      default: 'pending'
+    },
+    reason: { type: String },
+    updated_at: { type: Date, default: Date.now }
   },
   
-  // Contact Information
-  contact: {
-    phone: { type: String },
-    email: { type: String },
-    website: { type: String },
-    whatsapp: { type: String }
-  },
+  // Status history
+  status_history: [{
+    status: { 
+      type: String, 
+      enum: ['pending', 'validated', 'active', 'deactivated', 'suspended']
+    },
+    reason: { type: String },
+    updated_at: { type: Date, default: Date.now }
+  }],
   
-  // Social Media
-  social_media: {
-    facebook: { type: String },
-    instagram: { type: String },
-    twitter: { type: String },
-    youtube: { type: String }
-  },
+  // Categories
+  categories: [{
+    category_id: { type: mongoose.Schema.Types.ObjectId, ref: 'ShopCategory' },
+    name: { type: String },
+    assigned_at: { type: Date, default: Date.now }
+  }],
   
-  // Settings
-  settings: {
-    currency: { type: String, default: 'MGA' }, // Malagasy Ariary
-    timezone: { type: String, default: 'Indian/Antananarivo' },
-    language: { type: String, default: 'fr' }
-  },
+  // Update history
+  update_history: [{
+    shop_name: { type: String },
+    description: { type: String },
+    logo: { type: String },
+    mall_location: { type: String },
+    opening_time: { type: Object },
+    updated_at: { type: Date, default: Date.now }
+  }],
   
-  // Status
-  is_active: { type: Boolean, default: true },
-  is_verified: { type: Boolean, default: false },
+  // Review stats
+  review_stats: {
+    average_rating: { type: Number, default: 0 },
+    total_reviews: { type: Number, default: 0 }
+  },
   
   // Metadata
-  created_at: { type: Date, default: Date.now },
-  updated_at: { type: Date }
+  created_at: { type: Date, default: Date.now }
 }, {
-  collection: 'shop_profiles',
+  collection: 'shops',
   toJSON: {
     transform: function(doc, ret) {
       delete ret.__v;
@@ -82,25 +92,11 @@ const shopProfileSchema = new mongoose.Schema({
 });
 
 // Indexes
-shopProfileSchema.index({ 'location.city': 1 });
-shopProfileSchema.index({ 'location.latitude': 1, 'location.longitude': 1 });
+shopSchema.index({ 'current_status.status': 1 });
+shopSchema.index({ 'categories.category_id': 1 });
+shopSchema.index({ 'users.user_id': 1 });
+shopSchema.index({ mall_location: 1 });
 
-// Pre-save middleware
-shopProfileSchema.pre('save', function(next) {
-  this.updated_at = new Date();
-  next();
-});
+const Shop = mongoose.models.Shop || mongoose.model('Shop', shopSchema);
 
-// Static method to find or create profile
-shopProfileSchema.statics.findOrCreate = async function(shopId) {
-  let profile = await this.findOne({ shop_id: shopId });
-  if (!profile) {
-    profile = new this({ shop_id: shopId, name: 'Ma Boutique' });
-    await profile.save();
-  }
-  return profile;
-};
-
-const ShopProfile = mongoose.models.ShopProfile || mongoose.model('ShopProfile', shopProfileSchema);
-
-module.exports = { ShopProfile };
+module.exports = { Shop };

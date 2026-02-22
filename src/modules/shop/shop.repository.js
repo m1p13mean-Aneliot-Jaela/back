@@ -1,4 +1,4 @@
-const Shop = require('./shop.model');
+const { Shop } = require('./shop.model');
 
 class ShopRepository {
   /**

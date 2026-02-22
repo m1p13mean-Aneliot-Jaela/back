@@ -4,6 +4,15 @@ const HTTP_STATUS = require('../../shared/constants/http-status');
 const MESSAGES = require('../../shared/constants/messages');
 
 class UserController {
+  create = asyncHandler(async (req, res) => {
+    const user = await userService.createUser(req.body);
+    res.status(HTTP_STATUS.CREATED).json({
+      success: true,
+      message: MESSAGES.USER.CREATED,
+      data: user
+    });
+  });
+
   getById = asyncHandler(async (req, res) => {
     const user = await userService.getUserById(req.params.id);
     res.status(HTTP_STATUS.OK).json({
@@ -82,6 +91,15 @@ class UserController {
       success: true,
       message: MESSAGES.USER.PROFILE_UPDATED,
       data: user
+    });
+  });
+
+  assignToShop = asyncHandler(async (req, res) => {
+    const shopProfile = await userService.assignUserToShop(req.params.id, req.body);
+    res.status(HTTP_STATUS.OK).json({
+      success: true,
+      message: 'User assigned to shop successfully',
+      data: shopProfile
     });
   });
 }

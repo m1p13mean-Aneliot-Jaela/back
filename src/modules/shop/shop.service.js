@@ -1,204 +1,216 @@
-const { ShopProfile } = require('./shop.model');
+const { Shop } = require('./shop.model');
 const { NotFoundError, ValidationError } = require('../../shared/errors/custom-errors');
 
 class ShopService {
-  // Get shop profile by ID
-  async getProfile(shopId) {
-    const profile = await ShopProfile.findOne({ shop_id: shopId });
-    if (!profile) {
-      // Auto-create profile if not exists
-      return this.createDefaultProfile(shopId);
-    }
-    return profile;
-  }
+  // ====== ADMIN METHODS ======
 
-  // Create default profile
-  async createDefaultProfile(shopId) {
-    const profile = new ShopProfile({
-      shop_id: shopId,
-      name: 'Ma Boutique',
-      location: {
-        country: 'MG'
-      },
-      business_hours: {
-        monday: { open: '08:00', close: '18:00', closed: false },
-        tuesday: { open: '08:00', close: '18:00', closed: false },
-        wednesday: { open: '08:00', close: '18:00', closed: false },
-        thursday: { open: '08:00', close: '18:00', closed: false },
-        friday: { open: '08:00', close: '18:00', closed: false },
-        saturday: { open: '08:00', close: '12:00', closed: false },
-        sunday: { open: '08:00', close: '18:00', closed: true }
-      },
-      contact: {},
-      social_media: {},
-      settings: {
-        currency: 'MGA',
-        timezone: 'Indian/Antananarivo',
-        language: 'fr'
-      }
-    });
-    await profile.save();
-    return profile;
-  }
-
-  // Update shop profile
-  async updateProfile(shopId, data) {
-    let profile = await ShopProfile.findOne({ shop_id: shopId });
+  // Get all shops (for admin)
+  async getAllShops(filters = {}) {
+    const query = {};
     
-    if (!profile) {
-      // Create if not exists
-      profile = new ShopProfile({
-        shop_id: shopId,
-        ...data
+    // Build query from filters
+    if (filters.status) {
+      query['current_status.status'] = filters.status;
+    }
+    if (filters.mall_location) {
+      query.mall_location = new RegExp(filters.mall_location, 'i');
+    }
+    if (filters.category_id) {
+      query['categories.category_id'] = filters.category_id;
+    }
+    
+    const shops = await Shop.find(query)
+      .populate('categories.category_id', 'name')
+      .populate('users.user_id', 'first_name last_name email')
+      .sort({ created_at: -1 })
+      .lean();
+    
+    return shops;
+  }
+
+  // Get shop by ID (admin)
+  async getShopById(id) {
+    const shop = await Shop.findById(id)
+      .populate('categories.category_id', 'name')
+      .populate('users.user_id', 'first_name last_name email');
+    
+    if (!shop) {
+      throw new NotFoundError('Shop not found');
+    }
+    return shop;
+  }
+
+  // Create shop (admin)
+  async createShop(data) {
+    const ShopCategory = require('../shop-category/shop-category.model');
+    
+    // Prepare shop data
+    const shopData = {
+      shop_name: data.shop_name,
+      description: data.description,
+      logo: data.logo,
+      mall_location: data.mall_location,
+      opening_time: data.opening_time || {
+        monday: { open: '08:00', close: '18:00' },
+        tuesday: { open: '08:00', close: '18:00' },
+        wednesday: { open: '08:00', close: '18:00' },
+        thursday: { open: '08:00', close: '18:00' },
+        friday: { open: '08:00', close: '18:00' },
+        saturday: { open: '08:00', close: '12:00' },
+        sunday: { open: '08:00', close: '18:00' }
+      },
+      current_status: {
+        status: data.current_status?.status || 'pending',
+        updated_at: new Date()
+      },
+      categories: [],
+      users: []
+    };
+
+    // Fetch and add categories if provided
+    if (data.categories && Array.isArray(data.categories) && data.categories.length > 0) {
+      // Fetch category details from database
+      const categoryDocs = await ShopCategory.find({ _id: { $in: data.categories } }).lean();
+      
+      // Map category IDs to include names
+      shopData.categories = data.categories.map(catId => {
+        const categoryDoc = categoryDocs.find(c => c._id.toString() === catId.toString());
+        return {
+          category_id: catId,
+          name: categoryDoc ? categoryDoc.name : '',
+          assigned_at: new Date()
+        };
       });
-    } else {
-      // Update existing
-      Object.assign(profile, data);
     }
-
-    await profile.save();
-    return profile;
+    
+    const shop = new Shop(shopData);
+    await shop.save();
+    
+    // Populate categories before returning
+    await shop.populate('categories.category_id', 'name');
+    
+    return shop;
   }
 
-  // Partial update (PATCH)
-  async patchProfile(shopId, data) {
-    const profile = await ShopProfile.findOne({ shop_id: shopId });
-    if (!profile) {
-      throw new NotFoundError('Profil boutique non trouvé');
+  // Update shop (admin)
+  async updateShop(id, data) {
+    const ShopCategory = require('../shop-category/shop-category.model');
+    
+    const shop = await Shop.findById(id);
+    if (!shop) {
+      throw new NotFoundError('Shop not found');
     }
 
-    // Deep merge for nested objects
-    if (data.location) {
-      profile.location = { ...profile.location, ...data.location };
-    }
-    if (data.business_hours) {
-      Object.assign(profile.business_hours, data.business_hours);
-    }
-    if (data.contact) {
-      profile.contact = { ...profile.contact, ...data.contact };
-    }
-    if (data.social_media) {
-      profile.social_media = { ...profile.social_media, ...data.social_media };
-    }
-    if (data.settings) {
-      profile.settings = { ...profile.settings, ...data.settings };
+    // Add to update history
+    const historyEntry = {
+      shop_name: shop.shop_name,
+      description: shop.description,
+      logo: shop.logo,
+      mall_location: shop.mall_location,
+      opening_time: shop.opening_time,
+      updated_at: new Date()
+    };
+    shop.update_history.push(historyEntry);
+
+    // Update basic fields
+    if (data.shop_name) shop.shop_name = data.shop_name;
+    if (data.description !== undefined) shop.description = data.description;
+    if (data.logo !== undefined) shop.logo = data.logo;
+    if (data.mall_location !== undefined) shop.mall_location = data.mall_location;
+    if (data.opening_time) shop.opening_time = data.opening_time;
+
+    // Update categories if provided
+    if (data.categories && Array.isArray(data.categories)) {
+      // Fetch category details from database
+      const categoryDocs = await ShopCategory.find({ _id: { $in: data.categories } }).lean();
+      
+      // Map category IDs to include names
+      shop.categories = data.categories.map(catId => {
+        const categoryDoc = categoryDocs.find(c => c._id.toString() === catId.toString());
+        return {
+          category_id: catId,
+          name: categoryDoc ? categoryDoc.name : '',
+          assigned_at: new Date()
+        };
+      });
     }
 
-    // Simple fields
-    const simpleFields = ['name', 'logo', 'description', 'is_active'];
-    simpleFields.forEach(field => {
-      if (data[field] !== undefined) {
-        profile[field] = data[field];
-      }
+    await shop.save();
+    await shop.populate('categories.category_id', 'name');
+    
+    return shop;
+  }
+
+  // Update shop status (admin)
+  async updateShopStatus(id, status, reason = '') {
+    const shop = await Shop.findById(id);
+    if (!shop) {
+      throw new NotFoundError('Shop not found');
+    }
+
+    // Add to status history
+    shop.status_history.push({
+      status: shop.current_status.status,
+      reason: shop.current_status.reason,
+      updated_at: shop.current_status.updated_at
     });
 
-    await profile.save();
-    return profile;
-  }
-
-  // Update logo
-  async updateLogo(shopId, logoUrl) {
-    const profile = await ShopProfile.findOneAndUpdate(
-      { shop_id: shopId },
-      { logo: logoUrl, updated_at: new Date() },
-      { new: true, upsert: true }
-    );
-    return profile;
-  }
-
-  // Update location (with coordinates from Google Maps)
-  async updateLocation(shopId, locationData) {
-    const profile = await ShopProfile.findOne({ shop_id: shopId });
-    if (!profile) {
-      throw new NotFoundError('Profil boutique non trouvé');
-    }
-
-    profile.location = {
-      ...profile.location,
-      ...locationData
+    // Update current status
+    shop.current_status = {
+      status,
+      reason,
+      updated_at: new Date()
     };
 
-    await profile.save();
-    return profile;
+    await shop.save();
+    return shop;
   }
 
-  // Update business hours
-  async updateBusinessHours(shopId, hoursData) {
-    const profile = await ShopProfile.findOne({ shop_id: shopId });
-    if (!profile) {
-      throw new NotFoundError('Profil boutique non trouvé');
+  // Delete shop (admin)
+  async deleteShop(id) {
+    const shop = await Shop.findByIdAndDelete(id);
+    if (!shop) {
+      throw new NotFoundError('Shop not found');
+    }
+    return shop;
+  }
+
+  // Assign user to shop (admin)
+  async assignUserToShop(shopId, userId, role, userData = {}) {
+    const shop = await Shop.findById(shopId);
+    if (!shop) {
+      throw new NotFoundError('Shop not found');
     }
 
-    Object.assign(profile.business_hours, hoursData);
-    await profile.save();
-    return profile;
-  }
-
-  // Check if shop is currently open
-  async isShopOpen(shopId) {
-    const profile = await ShopProfile.findOne({ shop_id: shopId });
-    if (!profile) return null;
-
-    const now = new Date();
-    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-    const currentDay = dayNames[now.getDay()];
-    const dayHours = profile.business_hours?.[currentDay];
-
-    if (!dayHours || dayHours.closed) {
-      return { open: false, reason: 'closed' };
+    // Check if user already assigned
+    const existingUser = shop.users.find(u => u.user_id.toString() === userId.toString());
+    if (existingUser) {
+      throw new ValidationError('User already assigned to this shop');
     }
 
-    const currentTime = now.getHours() * 60 + now.getMinutes();
-    const [openHour, openMin] = dayHours.open.split(':').map(Number);
-    const [closeHour, closeMin] = dayHours.close.split(':').map(Number);
-    const openTime = openHour * 60 + openMin;
-    const closeTime = closeHour * 60 + closeMin;
-
-    const isOpen = currentTime >= openTime && currentTime < closeTime;
-    return {
-      open: isOpen,
-      hours: dayHours,
-      next_open: !isOpen ? dayHours.open : null
-    };
-  }
-
-  // Get shops near location (for customer discovery)
-  async getShopsNearLocation(latitude, longitude, maxDistance = 10000) {
-    // maxDistance in meters (default 10km)
-    const shops = await ShopProfile.find({
-      is_active: true,
-      'location.latitude': { $exists: true },
-      'location.longitude': { $exists: true }
-    }).lean();
-
-    // Calculate distance and filter
-    const shopsWithDistance = shops.map(shop => {
-      const distance = this.calculateDistance(
-        latitude, longitude,
-        shop.location.latitude, shop.location.longitude
-      );
-      return { ...shop, distance };
+    // Add user
+    shop.users.push({
+      user_id: userId,
+      role,
+      assigned_at: new Date(),
+      first_name: userData.first_name,
+      last_name: userData.last_name
     });
 
-    return shopsWithDistance
-      .filter(s => s.distance <= maxDistance)
-      .sort((a, b) => a.distance - b.distance);
+    await shop.save();
+    return shop;
   }
 
-  // Calculate distance using Haversine formula
-  calculateDistance(lat1, lon1, lat2, lon2) {
-    const R = 6371e3; // Earth radius in meters
-    const φ1 = lat1 * Math.PI / 180;
-    const φ2 = lat2 * Math.PI / 180;
-    const Δφ = (lat2 - lat1) * Math.PI / 180;
-    const Δλ = (lon2 - lon1) * Math.PI / 180;
+  // Remove user from shop (admin)
+  async removeUserFromShop(shopId, userId) {
+    const shop = await Shop.findById(shopId);
+    if (!shop) {
+      throw new NotFoundError('Shop not found');
+    }
 
-    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-              Math.cos(φ1) * Math.cos(φ2) *
-              Math.sin(Δλ/2) * Math.sin(Δλ/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-
-    return R * c;
+    shop.users = shop.users.filter(u => u.user_id.toString() !== userId.toString());
+    await shop.save();
+    return shop;
   }
 }
 
