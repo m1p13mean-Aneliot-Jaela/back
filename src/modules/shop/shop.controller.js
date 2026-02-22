@@ -193,6 +193,58 @@ class ShopController {
       data: { logo_url: logoUrl, profile }
     });
   });
+
+  // ====== ADMIN METHODS ======
+
+  // Get all shops (admin)
+  getAllShops = catchAsync(async (req, res) => {
+    const shops = await shopService.getAllShops();
+    res.status(HTTP_STATUS.OK).json({
+      success: true,
+      data: shops
+    });
+  });
+
+  // Get shop by ID (admin)
+  getShopById = catchAsync(async (req, res) => {
+    const { id } = req.params;
+    const shop = await shopService.getShopById(id);
+    res.status(HTTP_STATUS.OK).json({
+      success: true,
+      data: shop
+    });
+  });
+
+  // Create shop (admin)
+  createShop = catchAsync(async (req, res) => {
+    const shop = await shopService.createShop(req.body);
+    res.status(HTTP_STATUS.CREATED).json({
+      success: true,
+      message: 'Shop created successfully',
+      data: shop
+    });
+  });
+
+  // Update shop (admin)
+  updateShop = catchAsync(async (req, res) => {
+    const { id } = req.params;
+    const shop = await shopService.updateShop(id, req.body);
+    res.status(HTTP_STATUS.OK).json({
+      success: true,
+      message: 'Shop updated successfully',
+      data: shop
+    });
+  });
+
+  // Delete shop (admin)
+  deleteShop = catchAsync(async (req, res) => {
+    const { id } = req.params;
+    await shopService.deleteShop(id);
+    res.status(HTTP_STATUS.OK).json({
+      success: true,
+      message: 'Shop deleted successfully'
+    });
+  });
 }
 
 module.exports = new ShopController();
