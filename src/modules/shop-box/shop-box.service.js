@@ -1,5 +1,6 @@
 const shopBoxRepository = require('./shop-box.repository');
 const userRepository = require('../user/user.repository');
+const shopRepository = require('../shop/shop.repository');
 const { NotFoundError, ValidationError, ConflictError } = require('../../shared/errors/custom-errors');
 const { ObjectId } = require('mongoose').Types;
 
@@ -160,17 +161,13 @@ class ShopBoxService {
     }
 
     // Check if shop exists
-    const shop = await userRepository.findById(shopId);
+    const shop = await shopRepository.findById(shopId);
     if (!shop) {
       throw new NotFoundError('Shop not found');
     }
 
-    if (shop.user_type !== 'shop') {
-      throw new ValidationError('User is not a shop');
-    }
-
     // Get shop name
-    const shopName = `${shop.first_name} ${shop.last_name}`;
+    const shopName = shop.shop_name;
 
     return shopBoxRepository.assignShop(shopBoxId, shopId, shopName);
   }
@@ -207,16 +204,12 @@ class ShopBoxService {
       }
 
       // Check if shop exists
-      const shop = await userRepository.findById(shopId);
+      const shop = await shopRepository.findById(shopId);
       if (!shop) {
         throw new NotFoundError(`Shop not found: ${shopId}`);
       }
 
-      if (shop.user_type !== 'shop') {
-        throw new ValidationError(`User ${shopId} is not a shop`);
-      }
-
-      const shopName = `${shop.first_name} ${shop.last_name}`;
+      const shopName = shop.shop_name;
       validatedAssignments.push({ shopBoxId, shopId, shopName });
     }
 

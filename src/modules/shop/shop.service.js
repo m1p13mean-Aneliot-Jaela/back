@@ -135,6 +135,25 @@ class ShopService {
       });
     }
 
+    // Update status if provided
+    if (data.current_status) {
+      // Add to status history if status is changing
+      if (shop.current_status.status !== data.current_status.status) {
+        shop.status_history.push({
+          status: shop.current_status.status,
+          reason: shop.current_status.reason,
+          updated_at: shop.current_status.updated_at
+        });
+      }
+      
+      // Update current status
+      shop.current_status = {
+        status: data.current_status.status,
+        reason: data.current_status.reason || '',
+        updated_at: new Date()
+      };
+    }
+
     await shop.save();
     await shop.populate('categories.category_id', 'name');
     
