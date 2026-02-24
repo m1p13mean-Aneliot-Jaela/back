@@ -1,6 +1,8 @@
 const { catchAsync } = require('../../shared/errors/custom-errors');
 const HTTP_STATUS = require('../../shared/constants/http-status');
 const orderService = require('./order.service');
+const notificationService = require('../notification/notification.service');
+const { Shop } = require('../shop/shop.model');
 
 // Create controller object with methods wrapped in catchAsync
 const orderController = {
@@ -54,7 +56,7 @@ const orderController = {
     });
   }),
 
-  // Update order status
+  // Update order status with notifications
   updateStatus: catchAsync(async (req, res) => {
     const { id } = req.params;
     const shopId = req.user?.shop_id;
@@ -62,6 +64,30 @@ const orderController = {
     const changedBy = req.user?.id;
 
     const order = await orderService.updateStatus(id, shopId, status, changedBy, note);
+
+    // Get shop info for notifications
+    const shop = await Shop.findById(shopId);
+    const shopName = shop?.shop_name || 'Boutique';
+
+    // Send notifications based on new status
+    try {
+      if (status === 'CONFIRMED') {
+        // TODO: Get customer user ID from order and notify
+        // await notificationService.notifyOrderConfirmed(customerId, order, shopName);
+      } else if (status === 'PAYMENT_REQUESTED') {
+        // TODO: Get customer user ID from order and notify
+        // await notificationService.notifyPaymentRequest(customerId, order, shopName);
+      } else if (status === 'SHIPPED') {
+        // TODO: Get customer user ID from order and notify
+        // await notificationService.notifyOrderShipped(customerId, order, order.delivery?.tracking_number);
+      } else if (status === 'DELIVERED') {
+        // TODO: Get customer user ID from order and notify
+        // await notificationService.notifyOrderDelivered(customerId, order);
+      }
+    } catch (notifError) {
+      console.error('Notification error:', notifError);
+      // Don't fail the request if notification fails
+    }
 
     res.status(HTTP_STATUS.OK).json({
       success: true,
@@ -80,6 +106,31 @@ const orderController = {
     res.status(HTTP_STATUS.OK).json({
       success: true,
       message: 'Commande mise à jour',
+      data: order
+    });
+  }),
+
+  // Client confirms payment (changes PAYMENT_REQUESTED → PAID)
+  confirmPayment: catchAsync(async (req, res) => {
+    const { id } = req.params;
+    const clientUserId = req.user?.id;
+
+    const order = await orderService.clientConfirmPayment(id, clientUserId);
+
+    // Notify shop that payment is received
+    try {
+      const shop = await Shop.findById(order.shop_id);
+      if (shop && shop.users) {
+        const shopUserIds = shop.users.map(u => u.user_id.toString());
+        await notificationService.notifyPaymentReceived(shopUserIds, order);
+      }
+    } catch (notifError) {
+      console.error('Notification error:', notifError);
+    }
+
+    res.status(HTTP_STATUS.OK).json({
+      success: true,
+      message: 'Paiement confirmé avec succès',
       data: order
     });
   }),

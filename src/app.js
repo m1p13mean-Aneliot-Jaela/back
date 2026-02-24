@@ -82,9 +82,12 @@ const stockRoutes = require('./modules/stock/stock.routes');
 const promotionRoutes = require('./modules/promotion/promotion.routes');
 const deliveryRoutes = require('./modules/delivery/delivery.routes');
 const orderRoutes = require('./modules/order/order.routes');
+const notificationRoutes = require('./modules/notification/notification.routes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/orders', orderRoutes);
+app.use('/api/notifications', notificationRoutes);
 app.use('/api', employeeRoutes);
 app.use('/api/shops', shopRoutes);
 app.use('/api/admin', shopAdminRoutes);
