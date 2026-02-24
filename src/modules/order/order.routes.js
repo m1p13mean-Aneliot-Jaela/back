@@ -76,6 +76,13 @@ router.patch(
   orderController.updateStatus
 );
 
+// POST /api/orders/:id/confirm-payment (client confirms payment)
+router.post(
+  '/orders/:id/confirm-payment',
+  authenticate,
+  orderController.confirmPayment
+);
+
 // GET /api/orders/:id/history
 router.get(
   '/orders/:id/history',

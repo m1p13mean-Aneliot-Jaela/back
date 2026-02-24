@@ -165,8 +165,10 @@ class OrderService {
     }
     const validTransitions = {
       'PENDING': ['CONFIRMED', 'CANCELED'],
-      'CONFIRMED': ['SHIPPED', 'CANCELED'],
-      'SHIPPED': ['DELIVERED', 'CANCELED'],
+      'CONFIRMED': ['PAYMENT_REQUESTED', 'CANCELED'],
+      'PAYMENT_REQUESTED': ['PAID', 'CANCELED'],
+      'PAID': ['SHIPPED', 'CANCELED'],
+      'SHIPPED': ['DELIVERED'],
       'DELIVERED': [],
       'CANCELED': []
     };
@@ -205,6 +207,37 @@ class OrderService {
     if (newStatus === 'CANCELED') {
       order.payment.status = 'REFUNDED';
     }
+
+    return await order.save();
+  }
+
+  // Client confirms payment (changes status from PAYMENT_REQUESTED to PAID)
+  async clientConfirmPayment(orderId, clientUserId) {
+    if (!mongoose.Types.ObjectId.isValid(orderId)) {
+      throw new Error('Invalid order ID format');
+    }
+
+    const order = await Order.findById(orderId);
+    if (!order) {
+      throw new Error('Order not found');
+    }
+
+    // Verify order is in PAYMENT_REQUESTED status
+    if (order.status !== 'PAYMENT_REQUESTED') {
+      throw new Error(`Cannot confirm payment. Order status is ${order.status}, expected PAYMENT_REQUESTED`);
+    }
+
+    // Update status to PAID
+    order.status = 'PAID';
+    order.payment.status = 'PAID';
+    order.payment.paid_at = new Date();
+    
+    // Add to history
+    order.status_history.push({
+      status: 'PAID',
+      changed_at: new Date(),
+      note: 'Payment confirmed by client'
+    });
 
     return await order.save();
   }

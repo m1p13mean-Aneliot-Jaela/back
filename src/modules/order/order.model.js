@@ -17,7 +17,7 @@ const OrderItemSchema = new mongoose.Schema({
 const StatusHistorySchema = new mongoose.Schema({
   status: {
     type: String,
-    enum: ['PENDING', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELED'],
+    enum: ['PENDING', 'CONFIRMED', 'PAYMENT_REQUESTED', 'PAID', 'SHIPPED', 'DELIVERED', 'CANCELED'],
     required: true
   },
   changed_at: { type: Date, default: Date.now },
@@ -66,7 +66,7 @@ const OrderSchema = new mongoose.Schema({
   // Status workflow
   status: {
     type: String,
-    enum: ['PENDING', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELED'],
+    enum: ['PENDING', 'CONFIRMED', 'PAYMENT_REQUESTED', 'PAID', 'SHIPPED', 'DELIVERED', 'CANCELED'],
     default: 'PENDING',
     index: true
   },
