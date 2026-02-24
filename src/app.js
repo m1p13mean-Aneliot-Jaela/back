@@ -83,6 +83,7 @@ const promotionRoutes = require('./modules/promotion/promotion.routes');
 const deliveryRoutes = require('./modules/delivery/delivery.routes');
 const orderRoutes = require('./modules/order/order.routes');
 const notificationRoutes = require('./modules/notification/notification.routes');
+const leaseContractRoutes = require('./modules/lease-contract/lease-contract.routes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
@@ -91,6 +92,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api', employeeRoutes);
 app.use('/api/shops', shopRoutes);
 app.use('/api/admin', shopAdminRoutes);
+app.use('/api/admin', leaseContractRoutes);
 app.use('/api/shop-boxes', shopBoxRoutes);
 app.use('/api', shopRoutes);
 app.use('/api/shop-categories', shopCategoryRoutes);
