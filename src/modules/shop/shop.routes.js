@@ -4,6 +4,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const shopController = require('./shop.controller');
+const productController = require('../product/product.controller');
 const { authenticate, authorize } = require('../../middlewares/auth.middleware');
 const { checkShopOwnership } = require('../../middlewares/auth.middleware');
 
@@ -55,24 +56,33 @@ const authorizeShopUser = (req, res, next) => {
   }
 };
 
+// ========== SHOP LIST ROUTES ==========
+
+// Get all shops (for all authenticated users)
+router.get('/',
+  authenticate,
+  authorize(['admin', 'brand', 'shop', 'buyer']),
+  shopController.getAllShops
+);
+
 // ========== SHOP PROFILE ROUTES ==========
 
 // Get my shop profile (from auth token)
-router.get('/shops/me/profile',
+router.get('/me/profile',
   authenticate,
   authorizeShopUser,
   shopController.getMyProfile
 );
 
 // Update my shop profile
-router.patch('/shops/me/profile',
+router.patch('/me/profile',
   authenticate,
   authorizeShopUser,
   shopController.updateMyProfile
 );
 
 // Upload logo with file (multipart/form-data)
-router.post('/shops/me/profile/logo/upload',
+router.post('/me/profile/logo/upload',
   authenticate,
   authorizeShopUser,
   upload.single('logo'),
@@ -80,7 +90,7 @@ router.post('/shops/me/profile/logo/upload',
 );
 
 // Get shop profile by ID
-router.get('/shops/:shopId/profile',
+router.get('/:shopId/profile',
   authenticate,
   authorizeShopUser,
   checkShopOwnership,
@@ -88,7 +98,7 @@ router.get('/shops/:shopId/profile',
 );
 
 // Full update (PUT)
-router.put('/shops/:shopId/profile',
+router.put('/:shopId/profile',
   authenticate,
   authorizeShopUser,
   checkShopOwnership,
@@ -96,7 +106,7 @@ router.put('/shops/:shopId/profile',
 );
 
 // Partial update (PATCH)
-router.patch('/shops/:shopId/profile',
+router.patch('/:shopId/profile',
   authenticate,
   authorizeShopUser,
   checkShopOwnership,
@@ -104,7 +114,7 @@ router.patch('/shops/:shopId/profile',
 );
 
 // Update logo URL
-router.patch('/shops/:shopId/profile/logo',
+router.patch('/:shopId/profile/logo',
   authenticate,
   authorizeShopUser,
   checkShopOwnership,
@@ -112,7 +122,7 @@ router.patch('/shops/:shopId/profile/logo',
 );
 
 // Upload logo with file for specific shop
-router.post('/shops/:shopId/profile/logo/upload',
+router.post('/:shopId/profile/logo/upload',
   authenticate,
   authorizeShopUser,
   checkShopOwnership,
@@ -121,7 +131,7 @@ router.post('/shops/:shopId/profile/logo/upload',
 );
 
 // Update location (with Google Maps coordinates)
-router.patch('/shops/:shopId/profile/location',
+router.patch('/:shopId/profile/location',
   authenticate,
   authorizeShopUser,
   checkShopOwnership,
@@ -129,7 +139,7 @@ router.patch('/shops/:shopId/profile/location',
 );
 
 // Update business hours
-router.patch('/shops/:shopId/profile/hours',
+router.patch('/:shopId/profile/hours',
   authenticate,
   authorizeShopUser,
   checkShopOwnership,
@@ -137,7 +147,7 @@ router.patch('/shops/:shopId/profile/hours',
 );
 
 // Check if shop is open
-router.get('/shops/:shopId/open-status',
+router.get('/:shopId/open-status',
   authenticate,
   authorizeShopUser,
   checkShopOwnership,
@@ -145,13 +155,18 @@ router.get('/shops/:shopId/open-status',
 );
 
 // Public route - Get shops near location (for customers)
-router.get('/shops/nearby',
+router.get('/nearby',
   shopController.getShopsNearby
 );
 
 // Public route - Get public shop profile
-router.get('/shops/:shopId/public',
+router.get('/:shopId/public',
   shopController.getProfile
+);
+
+// Public route - Get products by shop
+router.get('/:shopId/products',
+  productController.getByShop.bind(productController)
 );
 
 module.exports = router;

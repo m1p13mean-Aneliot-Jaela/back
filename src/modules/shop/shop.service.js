@@ -40,6 +40,11 @@ class ShopService {
     return shop;
   }
 
+  // Alias for getShopById (used by controller)
+  async getProfile(id) {
+    return this.getShopById(id);
+  }
+
   // Create shop (admin)
   async createShop(data) {
     const ShopCategory = require('../shop-category/shop-category.model');
