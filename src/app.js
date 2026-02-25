@@ -85,6 +85,7 @@ const orderRoutes = require('./modules/order/order.routes');
 const notificationRoutes = require('./modules/notification/notification.routes');
 const leaseContractRoutes = require('./modules/lease-contract/lease-contract.routes');
 const rentPaymentRoutes = require('./modules/rent-payment/rent-payment.routes');
+const adminRoutes = require('./modules/admin/admin.routes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
@@ -94,6 +95,7 @@ app.use('/api', employeeRoutes);
 app.use('/api/admin', shopAdminRoutes);
 app.use('/api/admin', leaseContractRoutes);
 app.use('/api/admin', rentPaymentRoutes);
+app.use('/api/admin', adminRoutes);
 app.use('/api/shop-boxes', shopBoxRoutes);
 app.use('/api/shop-categories', shopCategoryRoutes);
 app.use('/api/products', productRoutes);
