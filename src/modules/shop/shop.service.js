@@ -236,6 +236,71 @@ class ShopService {
     await shop.save();
     return shop;
   }
+
+  // Update shop categories (admin)
+  async updateShopCategories(shopId, categoryIds) {
+    const ShopCategory = require('../shop-category/shop-category.model');
+    
+    const shop = await Shop.findById(shopId);
+    if (!shop) {
+      throw new NotFoundError('Shop not found');
+    }
+
+    // Validate and fetch category details
+    const categoryDocs = await ShopCategory.find({ _id: { $in: categoryIds } }).lean();
+    
+    // Map category IDs to include names
+    shop.categories = categoryIds.map(catId => {
+      const categoryDoc = categoryDocs.find(c => c._id.toString() === catId.toString());
+      return {
+        category_id: catId,
+        name: categoryDoc ? categoryDoc.name : '',
+        assigned_at: new Date()
+      };
+    });
+
+    await shop.save();
+    await shop.populate('categories.category_id', 'name');
+    
+    return shop;
+  }
+
+  // Assign user to shop (admin)
+  async assignUserToShop(shopId, userId, role = 'owner') {
+    const User = require('../user/user.model');
+    
+    const shop = await Shop.findById(shopId);
+    if (!shop) {
+      throw new NotFoundError('Shop not found');
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      throw new NotFoundError('User not found');
+    }
+
+    // Check if user is already assigned
+    const existingUserIndex = shop.users.findIndex(u => u.user_id.toString() === userId.toString());
+    if (existingUserIndex !== -1) {
+      // Update role if user exists
+      shop.users[existingUserIndex].role = role;
+      shop.users[existingUserIndex].assigned_at = new Date();
+    } else {
+      // Add new user
+      shop.users.push({
+        user_id: userId,
+        role: role,
+        assigned_at: new Date(),
+        first_name: user.first_name || '',
+        last_name: user.last_name || ''
+      });
+    }
+
+    await shop.save();
+    await shop.populate('users.user_id', 'first_name last_name email');
+    
+    return shop;
+  }
 }
 
 module.exports = new ShopService();
