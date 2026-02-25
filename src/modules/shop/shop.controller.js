@@ -15,14 +15,26 @@ class ShopController {
 
   // Get my shop profile (from auth token)
   getMyProfile = catchAsync(async (req, res) => {
-    const shopId = req.user?.shop_id;
-    if (!shopId) {
+    // Try multiple possible user ID fields from JWT token
+    const userId = req.user?._id || req.user?.userId || req.user?.id || req.user?.sub;
+    
+    if (!userId) {
+      console.log('User object:', req.user); // Debug log
       return res.status(HTTP_STATUS.BAD_REQUEST).json({
         success: false,
-        message: 'Shop ID non trouvé'
+        message: 'User ID non trouvé dans le token'
       });
     }
-    const profile = await shopService.getProfile(shopId);
+    
+    // Find shop where user is assigned
+    const profile = await shopService.getProfileByUserId(userId);
+    if (!profile) {
+      return res.status(HTTP_STATUS.NOT_FOUND).json({
+        success: false,
+        message: 'Aucune boutique assignée à cet utilisateur'
+      });
+    }
+    
     res.status(HTTP_STATUS.OK).json({
       success: true,
       data: profile
@@ -243,6 +255,46 @@ class ShopController {
     res.status(HTTP_STATUS.OK).json({
       success: true,
       message: 'Shop deleted successfully'
+    });
+  });
+
+  // Update shop categories (admin)
+  updateShopCategories = catchAsync(async (req, res) => {
+    const { id } = req.params;
+    const { categories } = req.body;
+
+    if (!Array.isArray(categories)) {
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
+        success: false,
+        message: 'Categories must be an array of category IDs'
+      });
+    }
+
+    const shop = await shopService.updateShopCategories(id, categories);
+    res.status(HTTP_STATUS.OK).json({
+      success: true,
+      message: 'Shop categories updated successfully',
+      data: shop
+    });
+  });
+
+  // Assign user to shop (admin)
+  assignUserToShop = catchAsync(async (req, res) => {
+    const { id } = req.params;
+    const { user_id, role = 'owner' } = req.body;
+
+    if (!user_id) {
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
+        success: false,
+        message: 'User ID is required'
+      });
+    }
+
+    const shop = await shopService.assignUserToShop(id, user_id, role);
+    res.status(HTTP_STATUS.OK).json({
+      success: true,
+      message: 'User assigned to shop successfully',
+      data: shop
     });
   });
 }

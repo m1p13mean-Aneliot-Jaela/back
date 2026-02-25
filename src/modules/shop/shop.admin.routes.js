@@ -40,4 +40,18 @@ router.delete('/shops/:id',
   shopController.deleteShop
 );
 
+// Update shop categories
+router.patch('/shops/:id/categories',
+  authenticate,
+  authorize(['admin']),
+  shopController.updateShopCategories
+);
+
+// Assign user to shop
+router.patch('/shops/:id/users',
+  authenticate,
+  authorize(['admin']),
+  shopController.assignUserToShop
+);
+
 module.exports = router;
