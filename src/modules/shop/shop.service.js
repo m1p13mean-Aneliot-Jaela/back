@@ -40,18 +40,9 @@ class ShopService {
     return shop;
   }
 
-  async getProfile(shopId) {
-    return this.getShopById(shopId);
-  }
-
-  // Get profile by user ID (find shop where user is assigned)
-  async getProfileByUserId(userId) {
-    const shop = await Shop.findOne({ 
-      'users.user_id': userId 
-    }).populate('categories.category_id', 'name')
-      .populate('users.user_id', 'first_name last_name email');
-    
-    return shop;
+  // Alias for getShopById (used by controller)
+  async getProfile(id) {
+    return this.getShopById(id);
   }
 
   // Create shop (admin)
