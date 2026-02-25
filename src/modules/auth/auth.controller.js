@@ -5,10 +5,11 @@ const MESSAGES = require('../../shared/constants/messages');
 const config = require('../../config/env');
 
 function getCookieOptions() {
+  const isProduction = config.env === 'production';
   return {
     httpOnly: true,
-    secure: config.env === 'production',
-    sameSite: config.env === 'production' ? 'strict' : 'none'
+    secure: true, // Always true for SameSite=None compatibility
+    sameSite: isProduction ? 'strict' : 'none'
   };
 }
 

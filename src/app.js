@@ -92,7 +92,6 @@ app.use('/api', employeeRoutes);
 app.use('/api/shops', shopRoutes);
 app.use('/api/admin', shopAdminRoutes);
 app.use('/api/shop-boxes', shopBoxRoutes);
-app.use('/api', shopRoutes);
 app.use('/api/shop-categories', shopCategoryRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api', stockRoutes);
