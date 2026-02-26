@@ -1,6 +1,8 @@
 const Order = require('./order.model');
 const mongoose = require('mongoose');
 const deliveryService = require('../delivery/delivery.service');
+const stockService = require('../stock/stock.service');
+const notificationService = require('../notification/notification.service');
 
 class OrderService {
   // Generate unique order number
@@ -83,7 +85,40 @@ class OrderService {
       status_history: [{ status: orderData.status || 'PENDING', changed_at: new Date() }]
     });
 
-    return await order.save();
+    const savedOrder = await order.save();
+
+    // Notify shop about new order
+    try {
+      console.log('🔔 Creating notification for shop:', orderData.shop_id);
+      const notifData = {
+        recipient_id: orderData.shop_id,
+        recipient_type: 'SHOP',
+        type: 'ORDER_NEW',
+        order_id: savedOrder._id,
+        shop_id: orderData.shop_id,
+        title: 'Nouvelle commande reçue !',
+        message: `Commande #${orderNumber} de ${orderData.customer?.name || 'un client'} pour ${total_amount.toLocaleString()} Ar`,
+        action_url: `/boutique/orders/${savedOrder._id}`,
+        icon: 'shopping_cart',
+        color: 'success',
+        priority: 'HIGH'
+      };
+      console.log('🔔 Notification data:', notifData);
+      const notif = await notificationService.createNotification(notifData);
+      console.log('✅ Notification created:', notif._id);
+    } catch (notifError) {
+      console.error('❌ Error creating shop notification:', notifError.message);
+      console.error('❌ Error stack:', notifError.stack);
+    }
+
+    return savedOrder;
+  }
+
+  // Get orders by user (for clients/buyers)
+  async getOrdersByUser(userId) {
+    return await Order.find({ user_id: new mongoose.Types.ObjectId(userId) })
+      .sort({ created_at: -1 })
+      .lean();
   }
 
   // Get orders by shop with filters
@@ -203,12 +238,179 @@ class OrderService {
       order.delivery.actual_delivery = new Date();
     }
 
+    // Decrement stock when order is confirmed, payment requested, or delivered (for orders that skip steps)
+    console.log(`[DEBUG] Checking stock decrement: newStatus=${newStatus}, stock_decremented=${order.stock_decremented}`);
+    if ((newStatus === 'CONFIRMED' || newStatus === 'PAYMENT_REQUESTED' || newStatus === 'DELIVERED') && !order.stock_decremented) {
+      console.log(`[DEBUG] >>> Decrementing stock for order ${order._id} (status: ${newStatus})...`);
+      console.log(`[DEBUG] >>> Items count: ${order.items?.length || 0}`);
+      
+      // Process items sequentially to avoid parallel save errors
+      for (const item of order.items) {
+        console.log(`[DEBUG] Processing item: ${item.product_id} x${item.quantity}`);
+        try {
+          // Add a small delay between operations to prevent conflicts
+          await new Promise(resolve => setTimeout(resolve, 50));
+          
+          console.log(`[DEBUG] Calling stockService.removeStock for ${item.product_id}`);
+          const result = await stockService.removeStock(
+            order.shop_id.toString(),
+            item.product_id.toString(),
+            item.quantity,
+            null,
+            'Système',
+            `Commande ${newStatus.toLowerCase()} #${order.order_number}`
+          );
+          
+          console.log(`[DEBUG] removeStock result:`, result);
+          
+          if (!result.success) {
+            console.error(`[DEBUG] Failed to decrement stock for product ${item.product_id}:`, result.message);
+          } else {
+            console.log(`[DEBUG] Stock decremented for product ${item.product_id}: -${item.quantity}`);
+          }
+        } catch (stockError) {
+          console.error(`[DEBUG] Error decrementing stock for product ${item.product_id}:`, stockError.message);
+          // Continue with other items even if one fails
+        }
+      }
+      
+      // Mark stock as decremented to avoid doing it twice
+      order.stock_decremented = true;
+      console.log(`[DEBUG] >>> Marked order ${order._id} as stock_decremented=true`);
+    } else {
+      console.log(`[DEBUG] Skipping stock decrement (condition not met)`);
+    }
+
     // Update payment if canceled
     if (newStatus === 'CANCELED') {
       order.payment.status = 'REFUNDED';
     }
 
-    return await order.save();
+    // Create notifications based on status change
+    try {
+      if (newStatus === 'CONFIRMED') {
+        // Notify client that order is confirmed
+        await notificationService.createNotification({
+          recipient_id: order.user_id,
+          recipient_type: 'USER',
+          user_id: order.user_id,
+          type: 'ORDER_CONFIRMED',
+          order_id: order._id,
+          shop_id: order.shop_id,
+          title: 'Commande confirmée',
+          message: `Votre commande ${order.order_number} a été confirmée par la boutique.`,
+          action_url: `/client/orders/${order._id}`,
+          icon: 'check_circle',
+          color: 'success'
+        });
+      }
+      
+      if (newStatus === 'PAYMENT_REQUESTED') {
+        // Notify client to pay
+        console.log('🔔 Creating PAYMENT_REQUESTED notification for client:', order.user_id);
+        try {
+          const notif = await notificationService.createNotification({
+            recipient_id: order.user_id,
+            recipient_type: 'USER',
+            user_id: order.user_id,
+            type: 'ORDER_PAYMENT_REQUESTED',
+            order_id: order._id,
+            shop_id: order.shop_id,
+            title: 'Paiement requis',
+            message: `Veuillez effectuer le paiement de ${order.total_amount?.toLocaleString()} Ar pour la commande ${order.order_number}.`,
+            action_url: `/client/orders/${order._id}`,
+            icon: 'payment',
+            color: 'warning',
+            priority: 'HIGH'
+          });
+          console.log('✅ PAYMENT_REQUESTED notification created:', notif._id);
+        } catch (err) {
+          console.error('❌ Error creating PAYMENT_REQUESTED notification:', err.message);
+        }
+      }
+      
+      if (newStatus === 'PAID') {
+        // Notify shop that client paid
+        await notificationService.createNotification({
+          recipient_id: order.shop_id,
+          recipient_type: 'SHOP',
+          type: 'ORDER_PAID',
+          order_id: order._id,
+          shop_id: order.shop_id,
+          title: 'Paiement reçu',
+          message: `Le client a payé ${order.total_amount?.toLocaleString()} Ar pour la commande ${order.order_number}.`,
+          action_url: `/boutique/orders/${order._id}`,
+          icon: 'paid',
+          color: 'success'
+        });
+      }
+      
+      if (newStatus === 'SHIPPED') {
+        // Notify client that order is shipped
+        await notificationService.createNotification({
+          recipient_id: order.user_id,
+          recipient_type: 'USER',
+          user_id: order.user_id,
+          type: 'ORDER_SHIPPED',
+          order_id: order._id,
+          shop_id: order.shop_id,
+          title: 'Commande expédiée',
+          message: `Votre commande ${order.order_number} est en route !`,
+          action_url: `/client/orders/${order._id}`,
+          icon: 'local_shipping',
+          color: 'info'
+        });
+      }
+      
+      if (newStatus === 'DELIVERED') {
+        // Notify client that order is delivered
+        await notificationService.createNotification({
+          recipient_id: order.user_id,
+          recipient_type: 'USER',
+          user_id: order.user_id,
+          type: 'ORDER_DELIVERED',
+          order_id: order._id,
+          shop_id: order.shop_id,
+          title: 'Commande livrée',
+          message: `Votre commande ${order.order_number} a été livrée. Merci pour votre confiance !`,
+          action_url: `/client/orders/${order._id}`,
+          icon: 'home',
+          color: 'success'
+        });
+      }
+      
+      if (newStatus === 'CANCELED') {
+        // Notify client that order is canceled
+        await notificationService.createNotification({
+          recipient_id: order.user_id,
+          recipient_type: 'USER',
+          user_id: order.user_id,
+          type: 'ORDER_CANCELED',
+          order_id: order._id,
+          shop_id: order.shop_id,
+          title: 'Commande annulée',
+          message: `Votre commande ${order.order_number} a été annulée.`,
+          action_url: `/client/orders/${order._id}`,
+          icon: 'cancel',
+          color: 'error'
+        });
+      }
+    } catch (notifError) {
+      // Log notification error but don't fail the order update
+      console.error('Error creating notification:', notifError.message);
+    }
+
+    // Ensure required fields exist before saving
+    if (!order.subtotal) order.subtotal = order.items.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0);
+    if (!order.total_amount) order.total_amount = order.subtotal + (order.shipping_fee || 0) - (order.discount || 0);
+
+    try {
+      return await order.save();
+    } catch (saveError) {
+      console.error('Error saving order:', saveError.message);
+      console.error('Order data:', JSON.stringify(order.toObject(), null, 2));
+      throw saveError;
+    }
   }
 
   // Client confirms payment (changes status from PAYMENT_REQUESTED to PAID)
@@ -239,7 +441,27 @@ class OrderService {
       note: 'Payment confirmed by client'
     });
 
-    return await order.save();
+    const savedOrder = await order.save();
+
+    // Notify shop that payment was received
+    try {
+      await notificationService.createNotification({
+        recipient_id: order.shop_id,
+        recipient_type: 'SHOP',
+        type: 'ORDER_PAID',
+        order_id: order._id,
+        shop_id: order.shop_id,
+        title: 'Paiement reçu !',
+        message: `Le client a confirmé le paiement de ${order.total_amount?.toLocaleString()} Ar pour la commande ${order.order_number}.`,
+        action_url: `/boutique/orders/${order._id}`,
+        icon: 'paid',
+        color: 'success'
+      });
+    } catch (notifError) {
+      console.error('Error creating payment notification:', notifError.message);
+    }
+
+    return savedOrder;
   }
 
   // Update order (limited fields)

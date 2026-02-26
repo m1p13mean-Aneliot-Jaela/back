@@ -6,55 +6,64 @@ class NotificationService {
    */
   async createNotification(data) {
     const notification = new Notification({
-      user_id: data.user_id,
+      recipient_id: data.recipient_id || data.user_id,
+      recipient_type: data.recipient_type || 'USER',
+      user_id: data.user_id || data.recipient_id, // backward compatibility
       type: data.type,
-      order_id: data.order_id,
-      shop_id: data.shop_id,
+      order_id: data.order_id || null,
+      shop_id: data.shop_id || null,
+      product_id: data.product_id || null,
       title: data.title,
       message: data.message,
-      action_data: data.action_data || {},
+      action_data: {
+        url: data.action_url || (data.action_data?.url),
+        icon: data.icon || (data.action_data?.icon) || 'notifications',
+        color: data.color || (data.action_data?.color) || 'info',
+        priority: data.priority || (data.action_data?.priority) || 'NORMAL'
+      },
       created_at: new Date()
     });
-    
+
     return await notification.save();
   }
 
   /**
-   * Get notifications for a user
+   * Get notifications for a recipient (user or shop)
    */
-  async getUserNotifications(userId, options = {}) {
+  async getNotifications(recipientId, options = {}) {
     const { limit = 20, unreadOnly = false } = options;
-    
-    const query = { user_id: userId };
+
+    const query = { recipient_id: recipientId };
     if (unreadOnly) {
       query.is_read = false;
     }
-    
+
     return await Notification.find(query)
       .sort({ created_at: -1 })
       .limit(limit)
       .populate('order_id', 'order_number total_amount')
       .populate('shop_id', 'shop_name')
+      .populate('product_id', 'name')
       .lean();
   }
 
   /**
    * Mark notification as read
    */
-  async markAsRead(notificationId, userId) {
+  async markAsRead(notificationId, recipientId) {
     return await Notification.findOneAndUpdate(
-      { _id: notificationId, user_id: userId },
+      { _id: notificationId, recipient_id: recipientId },
       { is_read: true, read_at: new Date() },
       { new: true }
     );
   }
 
   /**
-   * Mark all as read for a user
+   * Mark all as read for a recipient
    */
-  async markAllAsRead(userId) {
+  async markAllAsRead(recipientId) {
     return await Notification.updateMany(
-      { user_id: userId, is_read: false },
+      { recipient_id: recipientId, is_read: false },
       { is_read: true, read_at: new Date() }
     );
   }
@@ -62,9 +71,9 @@ class NotificationService {
   /**
    * Get unread count
    */
-  async getUnreadCount(userId) {
+  async getUnreadCount(recipientId) {
     return await Notification.countDocuments({
-      user_id: userId,
+      recipient_id: recipientId,
       is_read: false
     });
   }
@@ -76,13 +85,17 @@ class NotificationService {
    */
   async notifyOrderConfirmed(userId, order, shopName) {
     return await this.createNotification({
+      recipient_id: userId,
+      recipient_type: 'USER',
       user_id: userId,
       type: 'ORDER_CONFIRMED',
       order_id: order._id,
       shop_id: order.shop_id,
       title: 'Commande confirmée',
       message: `Votre commande ${order.order_number} de ${shopName} a été confirmée.`,
-      action_data: { order_id: order._id, order_number: order.order_number }
+      action_url: `/client/orders/${order._id}`,
+      icon: 'check_circle',
+      color: 'success'
     });
   }
 
@@ -91,18 +104,37 @@ class NotificationService {
    */
   async notifyPaymentRequest(userId, order, shopName) {
     return await this.createNotification({
+      recipient_id: userId,
+      recipient_type: 'USER',
       user_id: userId,
       type: 'PAYMENT_REQUESTED',
       order_id: order._id,
       shop_id: order.shop_id,
       title: 'Paiement requis',
       message: `Veuillez payer ${order.total_amount.toLocaleString()} Ar pour votre commande ${order.order_number}.`,
-      action_data: { 
-        order_id: order._id, 
-        order_number: order.order_number,
-        amount: order.total_amount,
-        action: 'confirm_payment'
-      }
+      action_url: `/client/orders/${order._id}`,
+      icon: 'payment',
+      color: 'warning',
+      priority: 'HIGH'
+    });
+  }
+
+  /**
+   * Notify shop about new order
+   */
+  async notifyShopNewOrder(shopId, order) {
+    return await this.createNotification({
+      recipient_id: shopId,
+      recipient_type: 'SHOP',
+      type: 'ORDER_NEW',
+      order_id: order._id,
+      shop_id: shopId,
+      title: 'Nouvelle commande reçue !',
+      message: `Commande #${order.order_number} de ${order.customer?.name || 'un client'} pour ${order.total_amount?.toLocaleString()} Ar`,
+      action_url: `/boutique/orders/${order._id}`,
+      icon: 'shopping_cart',
+      color: 'success',
+      priority: 'HIGH'
     });
   }
 
@@ -111,20 +143,38 @@ class NotificationService {
    */
   async notifyPaymentReceived(shopUserIds, order) {
     const notifications = [];
-    
+
     for (const userId of shopUserIds) {
       const notif = await this.createNotification({
+        recipient_id: userId,
+        recipient_type: 'USER',
         user_id: userId,
         type: 'PAYMENT_RECEIVED',
         order_id: order._id,
         shop_id: order.shop_id,
         title: 'Paiement reçu',
         message: `Le client a confirmé le paiement de ${order.total_amount.toLocaleString()} Ar pour la commande ${order.order_number}.`,
-        action_data: { order_id: order._id, order_number: order.order_number }
+        action_url: `/boutique/orders/${order._id}`,
+        icon: 'paid',
+        color: 'success'
       });
       notifications.push(notif);
     }
-    
+
+    // Also notify the shop itself
+    await this.createNotification({
+      recipient_id: order.shop_id,
+      recipient_type: 'SHOP',
+      type: 'PAYMENT_RECEIVED',
+      order_id: order._id,
+      shop_id: order.shop_id,
+      title: 'Paiement reçu',
+      message: `Le client a confirmé le paiement de ${order.total_amount.toLocaleString()} Ar pour la commande ${order.order_number}.`,
+      action_url: `/boutique/orders/${order._id}`,
+      icon: 'paid',
+      color: 'success'
+    });
+
     return notifications;
   }
 
@@ -132,22 +182,22 @@ class NotificationService {
    * Notify client that order is shipped
    */
   async notifyOrderShipped(userId, order, trackingNumber) {
-    const message = trackingNumber 
+    const message = trackingNumber
       ? `Votre commande ${order.order_number} a été expédiée. N° de suivi: ${trackingNumber}`
       : `Votre commande ${order.order_number} a été expédiée.`;
-    
+
     return await this.createNotification({
+      recipient_id: userId,
+      recipient_type: 'USER',
       user_id: userId,
       type: 'ORDER_SHIPPED',
       order_id: order._id,
       shop_id: order.shop_id,
       title: 'Commande expédiée',
       message,
-      action_data: { 
-        order_id: order._id, 
-        order_number: order.order_number,
-        tracking_number: trackingNumber
-      }
+      action_url: `/client/orders/${order._id}`,
+      icon: 'local_shipping',
+      color: 'info'
     });
   }
 
@@ -156,13 +206,17 @@ class NotificationService {
    */
   async notifyOrderDelivered(userId, order) {
     return await this.createNotification({
+      recipient_id: userId,
+      recipient_type: 'USER',
       user_id: userId,
       type: 'ORDER_DELIVERED',
       order_id: order._id,
       shop_id: order.shop_id,
       title: 'Commande livrée',
       message: `Votre commande ${order.order_number} a été livrée. Merci pour votre confiance !`,
-      action_data: { order_id: order._id, order_number: order.order_number }
+      action_url: `/client/orders/${order._id}`,
+      icon: 'home',
+      color: 'success'
     });
   }
 
@@ -171,13 +225,96 @@ class NotificationService {
    */
   async notifyOrderCanceled(userId, order, canceledBy, reason) {
     return await this.createNotification({
+      recipient_id: userId,
+      recipient_type: 'USER',
       user_id: userId,
       type: 'ORDER_CANCELED',
       order_id: order._id,
       shop_id: order.shop_id,
       title: 'Commande annulée',
       message: `La commande ${order.order_number} a été annulée par ${canceledBy}. ${reason || ''}`,
-      action_data: { order_id: order._id, order_number: order.order_number }
+      action_url: `/client/orders/${order._id}`,
+      icon: 'cancel',
+      color: 'error'
+    });
+  }
+
+  /**
+   * Notify shop about low stock
+   */
+  async notifyShopLowStock(shopId, product, currentQty) {
+    return await this.createNotification({
+      recipient_id: shopId,
+      recipient_type: 'SHOP',
+      type: 'STOCK_LOW',
+      shop_id: shopId,
+      product_id: product._id,
+      title: 'Stock faible',
+      message: `Le produit "${product.name}" n'a plus que ${currentQty} unités en stock`,
+      action_url: `/boutique/stock`,
+      icon: 'warning',
+      color: 'warning',
+      priority: 'HIGH'
+    });
+  }
+
+  /**
+   * Notify clients about new promotion
+   */
+  async notifyClientsNewPromotion(userIds, promotion, shopId, shopName) {
+    const results = [];
+    for (const userId of userIds) {
+      const result = await this.createNotification({
+        recipient_id: userId,
+        recipient_type: 'USER',
+        user_id: userId,
+        type: 'PROMOTION_NEW',
+        shop_id: shopId,
+        title: `Nouvelle promotion chez ${shopName} !`,
+        message: `${promotion.title} - ${promotion.discount_percentage || promotion.discount_amount}% de réduction`,
+        action_url: `/client/shops/${shopId}`,
+        icon: 'campaign',
+        color: 'success'
+      });
+      results.push(result);
+    }
+    return results;
+  }
+
+  /**
+   * Notify shop about new review
+   */
+  async notifyShopNewReview(shopId, review, product) {
+    return await this.createNotification({
+      recipient_id: shopId,
+      recipient_type: 'SHOP',
+      type: 'REVIEW_NEW',
+      shop_id: shopId,
+      product_id: product._id,
+      title: 'Nouvel avis reçu',
+      message: `${review.rating}★ - "${review.comment?.substring(0, 50)}..." sur ${product.name}`,
+      action_url: `/boutique/reviews`,
+      icon: 'star',
+      color: 'info'
+    });
+  }
+
+  /**
+   * Notify client about stock alert for wishlist item
+   */
+  async notifyClientStockAlert(userId, product, shopId) {
+    return await this.createNotification({
+      recipient_id: userId,
+      recipient_type: 'USER',
+      user_id: userId,
+      type: 'WISHLIST_PRICE_DROP',
+      shop_id: shopId,
+      product_id: product._id,
+      title: 'Baisse de prix !',
+      message: `"${product.name}" est maintenant à ${product.price?.toLocaleString()} Ar`,
+      action_url: `/client/products/${product._id}`,
+      icon: 'trending_down',
+      color: 'success'
     });
   }
 }

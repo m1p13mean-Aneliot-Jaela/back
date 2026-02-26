@@ -110,13 +110,18 @@ class StockService {
     
     const newQuantity = existingStock.current_quantity - quantity;
     
-    return await this.updateStock(shopId, productId, newQuantity, {
-      staff_id: staffId,
-      staff_name: staffName,
+    // Build movement data without staff_id if null (to avoid validation error)
+    const movementData = {
+      staff_name: staffName || 'Système',
       movement_type: 'OUT',
       quantity: quantity,
       reason: reason || 'Sortie de stock'
-    });
+    };
+    if (staffId) {
+      movementData.staff_id = staffId;
+    }
+    
+    return await this.updateStock(shopId, productId, newQuantity, movementData);
   }
 
   // Get stock stats

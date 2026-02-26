@@ -6,7 +6,43 @@ const { Shop } = require('../shop/shop.model');
 
 // Create controller object with methods wrapped in catchAsync
 const orderController = {
-  // Create new order
+  // Get my orders (for clients/buyers)
+  getMyOrders: catchAsync(async (req, res) => {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(HTTP_STATUS.UNAUTHORIZED).json({
+        success: false,
+        message: 'Utilisateur non authentifié'
+      });
+    }
+
+    const orders = await orderService.getOrdersByUser(userId);
+
+    res.status(HTTP_STATUS.OK).json({
+      success: true,
+      data: orders
+    });
+  }),
+
+  // Create new order (for clients/buyers)
+  createClientOrder: catchAsync(async (req, res) => {
+    const userId = req.user?.id;
+    const orderData = {
+      ...req.body,
+      user_id: userId, // Track which user created the order
+      status: 'PENDING'
+    };
+
+    const order = await orderService.createOrder(orderData);
+
+    res.status(HTTP_STATUS.CREATED).json({
+      success: true,
+      message: 'Commande créée avec succès',
+      data: order
+    });
+  }),
+
+  // Create new order (for shop users)
   createOrder: catchAsync(async (req, res) => {
     const shopId = req.user?.shop_id || req.params.shopId;
     const orderData = {

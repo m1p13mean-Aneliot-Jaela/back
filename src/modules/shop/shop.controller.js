@@ -217,6 +217,15 @@ class ShopController {
     });
   });
 
+  // Get public shops (no auth required)
+  getPublicShops = catchAsync(async (req, res) => {
+    const shops = await shopService.getPublicShops();
+    res.status(HTTP_STATUS.OK).json({
+      success: true,
+      data: shops
+    });
+  });
+
   // Get shop by ID (admin)
   getShopById = catchAsync(async (req, res) => {
     const { id } = req.params;
