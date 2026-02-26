@@ -47,6 +47,20 @@ router.get(
   orderController.exportOrders
 );
 
+// POST /api/orders (for clients/buyers - authenticated or with customer info)
+router.post(
+  '/orders',
+  authenticate,
+  orderController.createClientOrder
+);
+
+// GET /api/orders/my (get my orders as client/buyer)
+router.get(
+  '/orders/my',
+  authenticate,
+  orderController.getMyOrders
+);
+
 // POST /api/shops/me/orders
 router.post(
   '/shops/me/orders',

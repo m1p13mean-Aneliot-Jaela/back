@@ -4,6 +4,20 @@ const { NotFoundError, ValidationError } = require('../../shared/errors/custom-e
 class ShopService {
   // ====== ADMIN METHODS ======
 
+  // Get public/active shops (no auth required)
+  async getPublicShops() {
+    const shops = await Shop.find({
+      'current_status.status': { $in: ['active', 'open', 'validated'] }
+    })
+      .populate('categories.category_id', 'name')
+      .populate('review_stats')
+      .select('shop_name description logo mall_location categories current_status review_stats created_at')
+      .sort({ created_at: -1 })
+      .lean();
+    
+    return shops;
+  }
+
   // Get all shops (for admin)
   async getAllShops(filters = {}) {
     const query = {};

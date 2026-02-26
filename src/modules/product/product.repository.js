@@ -1,5 +1,6 @@
 const Product = require('./product.model');
 const mongoose = require('mongoose');
+const Stock = require('../stock/stock.model');
 
 // Helper to convert Decimal128 to number and ObjectId to string
 function convertDecimal128(obj) {
@@ -52,7 +53,20 @@ class ProductRepository {
 
   async findById(id) {
     const product = await Product.findById(new mongoose.Types.ObjectId(id)).lean();
-    return product ? convertDecimal128(product) : null;
+    if (!product) return null;
+    
+    const converted = convertDecimal128(product);
+    
+    // Fetch stock for this product
+    const stock = await Stock.findOne({
+      shop_id: product.shop_id,
+      product_id: new mongoose.Types.ObjectId(id)
+    }).lean();
+    
+    converted.stock_quantity = stock?.current_quantity || 0;
+    converted.is_available = converted.stock_quantity > 0;
+    
+    return converted;
   }
 
   async findByShop(shopId, options = {}) {
@@ -72,8 +86,35 @@ class ProductRepository {
       this.getCategories(shopId)
     ]);
     
-    // Convert Decimal128 to numbers
-    const products = rawProducts.map(p => convertDecimal128(p));
+    // Get product IDs to fetch stocks (as ObjectIds)
+    const productIds = rawProducts.map(p => new mongoose.Types.ObjectId(p._id));
+    console.log('DEBUG: ShopId:', shopId);
+    console.log('DEBUG: Product IDs count:', productIds.length);
+    console.log('DEBUG: First product ID:', productIds[0]?.toString());
+    
+    // Fetch stocks for these products
+    const stocks = await Stock.find({
+      shop_id: new mongoose.Types.ObjectId(shopId),
+      product_id: { $in: productIds }
+    }).lean();
+    
+    console.log('DEBUG: Found stocks count:', stocks.length);
+    console.log('DEBUG: First stock:', stocks[0]);
+    console.log('DEBUG: All stocks product_ids:', stocks.map(s => ({ pid: s.product_id?.toString(), qty: s.current_quantity })));
+    
+    // Create a map of product_id -> stock_quantity
+    const stockMap = new Map();
+    stocks.forEach(stock => {
+      stockMap.set(stock.product_id.toString(), stock.current_quantity);
+    });
+    
+    // Convert Decimal128 to numbers and add stock_quantity
+    const products = rawProducts.map(p => {
+      const converted = convertDecimal128(p);
+      converted.stock_quantity = stockMap.get(p._id.toString()) || 0;
+      converted.is_available = converted.stock_quantity > 0;
+      return converted;
+    });
     
     return {
       products,

@@ -27,6 +27,13 @@ const StatusHistorySchema = new mongoose.Schema({
 
 // Order schema
 const OrderSchema = new mongoose.Schema({
+  // User reference (who created the order)
+  user_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    index: true
+  },
+
   // Shop reference
   shop_id: {
     type: mongoose.Schema.Types.ObjectId,
@@ -97,6 +104,9 @@ const OrderSchema = new mongoose.Schema({
     paid_at: { type: Date }
   },
 
+  // Stock tracking
+  stock_decremented: { type: Boolean, default: false },
+
   // Notes
   customer_note: { type: String },
   internal_note: { type: String },
@@ -107,6 +117,7 @@ const OrderSchema = new mongoose.Schema({
 });
 
 // Indexes for queries
+OrderSchema.index({ user_id: 1, created_at: -1 });
 OrderSchema.index({ shop_id: 1, created_at: -1 });
 OrderSchema.index({ shop_id: 1, status: 1 });
 OrderSchema.index({ order_number: 1 });

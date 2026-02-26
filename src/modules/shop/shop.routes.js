@@ -154,10 +154,11 @@ router.get('/:shopId/open-status',
   shopController.checkOpenStatus
 );
 
+// Public route - Get all public/active shops
+router.get('/public', shopController.getPublicShops);
+
 // Public route - Get shops near location (for customers)
-router.get('/nearby',
-  shopController.getShopsNearby
-);
+router.get('/nearby', shopController.getShopsNearby);
 
 // Public route - Get public shop profile
 router.get('/:shopId/public',

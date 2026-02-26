@@ -99,7 +99,20 @@ stockSchema.methods.updateQuantity = function(newQuantity, movementData) {
   this.updated_at = new Date();
   
   if (movementData) {
-    this.addMovement(movementData);
+    // Add movement without calling save (we'll save once at the end)
+    this.recent_movements.push({
+      staff_id: movementData.staff_id,
+      staff_name: movementData.staff_name,
+      movement_type: movementData.movement_type,
+      quantity: movementData.quantity,
+      reason: movementData.reason,
+      created_at: new Date()
+    });
+    
+    // Keep only last 20 movements
+    if (this.recent_movements.length > 20) {
+      this.recent_movements = this.recent_movements.slice(-20);
+    }
   }
   
   return this.save();
