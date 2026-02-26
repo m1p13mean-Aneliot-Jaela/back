@@ -5,8 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const shopController = require('./shop.controller');
 const productController = require('../product/product.controller');
-const { authenticate, authorize } = require('../../middlewares/auth.middleware');
-const { checkShopOwnership } = require('../../middlewares/auth.middleware');
+const { authenticate, authorize, checkShopOwnership, requirePermission } = require('../../middlewares/auth.middleware');
 
 // Configure multer for logo uploads
 const storage = multer.diskStorage({
@@ -74,17 +73,19 @@ router.get('/me/profile',
   shopController.getMyProfile
 );
 
-// Update my shop profile
+// Update my shop profile - only manager can edit
 router.patch('/me/profile',
   authenticate,
   authorizeShopUser,
+  requirePermission('edit_products'), // or create a specific 'edit_shop_profile' permission
   shopController.updateMyProfile
 );
 
-// Upload logo with file (multipart/form-data)
+// Upload logo with file (multipart/form-data) - only manager
 router.post('/me/profile/logo/upload',
   authenticate,
   authorizeShopUser,
+  requirePermission('manage_employees'), // Using manage_employees as proxy for manager-only actions
   upload.single('logo'),
   shopController.uploadLogo
 );

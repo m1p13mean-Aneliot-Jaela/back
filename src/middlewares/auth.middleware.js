@@ -245,6 +245,50 @@ const checkEmployeeOwnership = async (req, res, next) => {
   }
 };
 
+/**
+ * Middleware to check if user has a specific permission
+ * @param {string} permission - The permission to check (e.g., 'manage_employees', 'edit_products')
+ */
+const requirePermission = (permission) => {
+  return async (req, res, next) => {
+    try {
+      if (!req.user) {
+        throw new UnauthorizedError(MESSAGES.AUTH.UNAUTHORIZED);
+      }
+
+      // Admins have all permissions
+      if (req.user.user_type === 'admin') {
+        return next();
+      }
+
+      // Must be shop user_type
+      if (req.user.user_type !== 'shop') {
+        throw new ForbiddenError(MESSAGES.AUTH.FORBIDDEN);
+      }
+
+      // Get employee by email to check permissions
+      const employeeRepository = require('../modules/employee/employee.repository');
+      const employee = await employeeRepository.findByEmail(req.user.email);
+      
+      if (!employee) {
+        throw new ForbiddenError('Employee record not found');
+      }
+
+      // Get permissions based on role
+      const employeeService = require('../modules/employee/employee.service');
+      const permissions = employeeService.getPermissions(employee.role);
+      
+      if (permissions[permission] !== true) {
+        throw new ForbiddenError(`Permission denied: ${permission} required (role: ${employee.role})`);
+      }
+
+      next();
+    } catch (error) {
+      next(error);
+    }
+  };
+};
+
 module.exports = {
   authenticate,
   authorize,
@@ -252,5 +296,6 @@ module.exports = {
   checkActiveStatus,
   checkShopOwnership,
   checkShopManagerRole,
-  checkEmployeeOwnership
+  checkEmployeeOwnership,
+  requirePermission
 };

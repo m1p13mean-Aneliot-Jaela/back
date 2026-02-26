@@ -213,6 +213,48 @@ class ShopService {
     return shop;
   }
 
+  // Update shop logo URL
+  async updateLogo(shopId, logoUrl) {
+    if (!shopId) {
+      throw new ValidationError('Shop ID is required');
+    }
+    if (!logoUrl) {
+      throw new ValidationError('Logo URL is required');
+    }
+
+    const shop = await Shop.findById(shopId);
+    if (!shop) {
+      throw new NotFoundError('Shop not found');
+    }
+
+    shop.logo = logoUrl;
+    await shop.save();
+    return shop;
+  }
+
+  // Patch profile (partial update for shop manager)
+  async patchProfile(shopId, data) {
+    if (!shopId) {
+      throw new ValidationError('Shop ID is required');
+    }
+
+    const shop = await Shop.findById(shopId);
+    if (!shop) {
+      throw new NotFoundError('Shop not found');
+    }
+
+    // Update allowed fields only
+    const allowedFields = ['shop_name', 'description', 'logo', 'mall_location', 'opening_time', 'contact_info'];
+    allowedFields.forEach(field => {
+      if (data[field] !== undefined) {
+        shop[field] = data[field];
+      }
+    });
+
+    await shop.save();
+    return shop;
+  }
+
   // Assign user to shop (admin)
   async assignUserToShop(shopId, userId, role, userData = {}) {
     const shop = await Shop.findById(shopId);
