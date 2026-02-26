@@ -91,6 +91,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api', deliveryRoutes); 
 app.use('/api', employeeRoutes);
 app.use('/api/admin', shopAdminRoutes);
 app.use('/api/admin', leaseContractRoutes);
@@ -101,7 +102,6 @@ app.use('/api/shop-categories', shopCategoryRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api', stockRoutes);
 app.use('/api', promotionRoutes);
-app.use('/api', deliveryRoutes);
 app.use('/api', orderRoutes);
 
 // 404 handler
