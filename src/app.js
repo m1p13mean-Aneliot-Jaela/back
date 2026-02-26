@@ -93,6 +93,7 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api', deliveryRoutes); 
 app.use('/api', employeeRoutes);
+app.use('/api/shops', shopRoutes);
 app.use('/api/admin', shopAdminRoutes);
 app.use('/api/admin', leaseContractRoutes);
 app.use('/api/admin', rentPaymentRoutes);
