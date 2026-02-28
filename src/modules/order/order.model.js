@@ -45,8 +45,8 @@ const OrderSchema = new mongoose.Schema({
   // Order number (auto-generated)
   order_number: {
     type: String,
-    required: true,
-    unique: true
+    unique: true,
+    sparse: true
   },
 
   // Customer info
@@ -129,7 +129,7 @@ OrderSchema.pre('save', function(next) {
 });
 
 // Generate order number
-OrderSchema.pre('save', async function(next) {
+OrderSchema.pre('save', async function() {
   if (!this.order_number) {
     const date = new Date();
     const prefix = 'ORD';
@@ -139,7 +139,6 @@ OrderSchema.pre('save', async function(next) {
     const random = Math.floor(1000 + Math.random() * 9000);
     this.order_number = `${prefix}-${timestamp}-${random}`;
   }
-  next();
 });
 
 // Add status history on status change

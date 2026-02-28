@@ -1001,13 +1001,125 @@ async function setupDatabase() {
       } else throw err;
     }
 
+    // ============================================================================
+    // 18. QUOTE REQUESTS COLLECTION (Demandes de devis clients)
+    // ============================================================================
+    console.log('\n📦 Creating quote_requests collection...');
+    try {
+      await db.createCollection('quote_requests', {
+        validator: {
+          $jsonSchema: {
+            bsonType: 'object',
+            required: ['client_phone', 'shop_id', 'requested_items', 'status', 'created_at'],
+            properties: {
+              // Client info (pas forcément inscrit)
+              client_name: { bsonType: 'string' },
+              client_phone: { bsonType: 'string', description: 'Numéro de téléphone principal' },
+              client_email: { bsonType: 'string' },
+              client_address: {
+                bsonType: 'object',
+                properties: {
+                  street: { bsonType: 'string' },
+                  city: { bsonType: 'string' }
+                }
+              },
+              // Si client inscrit
+              client_id: { bsonType: ['objectId', 'null'] },
+              
+              // Shop concerné
+              shop_id: { bsonType: 'objectId' },
+              shop_name: { bsonType: 'string' },
+              
+              // Produits demandés (texte libre)
+              requested_items: {
+                bsonType: 'array',
+                items: {
+                  bsonType: 'object',
+                  properties: {
+                    product_name: { bsonType: 'string' },
+                    quantity: { bsonType: 'int' },
+                    notes: { bsonType: 'string' },
+                    product_id: { bsonType: ['objectId', 'null'] }
+                  }
+                }
+              },
+              
+              // Statut du workflow
+              status: { 
+                enum: ['PENDING', 'REVIEWING', 'QUOTE_SENT', 'ACCEPTED', 'REJECTED', 'CONVERTED', 'EXPIRED'],
+                description: 'PENDING=En attente, REVIEWING=Manager regarde, QUOTE_SENT=Devis envoyé, ACCEPTED=Client accepte, REJECTED=Refusé, CONVERTED=Transformé en commande'
+              },
+              
+              // Réponse du manager
+              manager_response: {
+                bsonType: 'object',
+                properties: {
+                  message: { bsonType: 'string' },
+                  calculated_total: { bsonType: 'decimal' },
+                  items_confirmed: {
+                    bsonType: 'array',
+                    items: {
+                      bsonType: 'object',
+                      properties: {
+                        product_id: { bsonType: 'objectId' },
+                        product_name: { bsonType: 'string' },
+                        quantity: { bsonType: 'int' },
+                        unit_price: { bsonType: 'decimal' },
+                        total: { bsonType: 'decimal' }
+                      }
+                    }
+                  },
+                  shipping_fee: { bsonType: 'decimal' },
+                  valid_until: { bsonType: 'date' }
+                }
+              },
+              
+              // Qui a traité la demande (manager)
+              handled_by: { bsonType: 'objectId' },
+              handled_by_name: { bsonType: 'string' },
+              handled_at: { bsonType: 'date' },
+              
+              // Réponse client
+              client_response: {
+                bsonType: 'object',
+                properties: {
+                  accepted: { bsonType: 'bool' },
+                  message: { bsonType: 'string' },
+                  responded_at: { bsonType: 'date' }
+                }
+              },
+              
+              // Lien vers commande créée (par le staff)
+              converted_order_id: { bsonType: ['objectId', 'null'] },
+              converted_by_staff_id: { bsonType: 'objectId' },
+              converted_at: { bsonType: 'date' },
+              
+              // Dates
+              created_at: { bsonType: 'date' },
+              updated_at: { bsonType: 'date' },
+              expires_at: { bsonType: 'date' }
+            }
+          }
+        }
+      });
+      await db.collection('quote_requests').createIndex({ shop_id: 1, status: 1, created_at: -1 });
+      await db.collection('quote_requests').createIndex({ client_phone: 1 });
+      await db.collection('quote_requests').createIndex({ client_id: 1 });
+      await db.collection('quote_requests').createIndex({ status: 1 });
+      console.log('✓ Quote requests collection created with indexes');
+    } catch (err) {
+      if (err.code === 48) {
+        console.log('⚠ Quote requests collection already exists');
+      } else throw err;
+    }
+
     console.log('\n✅ Database setup completed successfully!');
-    console.log('\n📊 Created 17 collections with validators and indexes:');
+    console.log('\n📊 Created 18 collections with validators and indexes:');
     console.log('   1. users\n   2. shop_boxes\n   3. shop_categories');
     console.log('   4. shops\n   5. shop_reviews\n   6. shop_favorites\n   7. lease_contracts');
     console.log('   8. rent_payments\n   9. product_categories\n  10. products\n  11. product_favorites');
     console.log('  12. promotions\n  13. stocks\n  14. stock_movements\n  15. orders');
-    console.log('  16. events\n  17. notifications');
+    console.log('  16. events\n  17. notifications\n  18. quote_requests');
 
   } catch (error) {
     console.error('\n❌ Error setting up database:', error);

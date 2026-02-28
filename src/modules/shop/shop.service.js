@@ -18,6 +18,45 @@ class ShopService {
     return shops;
   }
 
+  // Search shops with filters (public endpoint)
+  async searchShops(filters = {}) {
+    const query = {
+      'current_status.status': { $in: ['active', 'open', 'validated'] }
+    };
+    
+    // Search by name
+    if (filters.search) {
+      query.shop_name = new RegExp(filters.search, 'i');
+    }
+    
+    // Filter by category
+    if (filters.category_id) {
+      query['categories.category_id'] = filters.category_id;
+    }
+    
+    // Filter by location
+    if (filters.location) {
+      query.mall_location = new RegExp(filters.location, 'i');
+    }
+    
+    let shopsQuery = Shop.find(query)
+      .populate('categories.category_id', 'name')
+      .populate('review_stats')
+      .select('shop_name description logo mall_location categories current_status review_stats created_at')
+      .sort({ created_at: -1 });
+    
+    // Pagination
+    if (filters.limit) {
+      shopsQuery = shopsQuery.limit(parseInt(filters.limit));
+    }
+    if (filters.skip) {
+      shopsQuery = shopsQuery.skip(parseInt(filters.skip));
+    }
+    
+    const shops = await shopsQuery.lean();
+    return shops;
+  }
+
   // Get all shops (for admin)
   async getAllShops(filters = {}) {
     const query = {};
@@ -253,6 +292,15 @@ class ShopService {
 
     await shop.save();
     return shop;
+  }
+
+  // Get shop categories
+  async getCategories(shopId) {
+    const shop = await Shop.findById(shopId).select('categories').lean();
+    if (!shop) {
+      throw new NotFoundError('Shop not found');
+    }
+    return shop.categories || [];
   }
 
   // Assign user to shop (admin)
