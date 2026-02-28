@@ -73,6 +73,13 @@ router.get('/me/profile',
   shopController.getMyProfile
 );
 
+// Get my shop categories (from auth token)
+router.get('/me/categories',
+  authenticate,
+  authorizeShopUser,
+  shopController.getMyCategories
+);
+
 // Update my shop profile - only manager can edit
 router.patch('/me/profile',
   authenticate,
@@ -157,6 +164,9 @@ router.get('/:shopId/open-status',
 
 // Public route - Get all public/active shops
 router.get('/public', shopController.getPublicShops);
+
+// Public route - Search shops with filters
+router.get('/search', shopController.searchShops);
 
 // Public route - Get shops near location (for customers)
 router.get('/nearby', shopController.getShopsNearby);

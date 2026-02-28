@@ -41,6 +41,25 @@ class ShopController {
     });
   });
 
+  // Get my shop categories (from auth token)
+  getMyCategories = catchAsync(async (req, res) => {
+    const shopId = req.user?.shop_id;
+    
+    if (!shopId) {
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
+        success: false,
+        message: 'Shop ID non trouvé'
+      });
+    }
+    
+    const categories = await shopService.getCategories(shopId);
+    
+    res.status(HTTP_STATUS.OK).json({
+      success: true,
+      data: { categories }
+    });
+  });
+
   // Update shop profile (PUT - full update)
   updateProfile = catchAsync(async (req, res) => {
     const { shopId } = req.params;
@@ -220,6 +239,23 @@ class ShopController {
   // Get public shops (no auth required)
   getPublicShops = catchAsync(async (req, res) => {
     const shops = await shopService.getPublicShops();
+    res.status(HTTP_STATUS.OK).json({
+      success: true,
+      data: shops
+    });
+  });
+
+  // Search shops with filters (public endpoint)
+  searchShops = catchAsync(async (req, res) => {
+    const filters = {
+      search: req.query.search,
+      category_id: req.query.category_id,
+      location: req.query.location,
+      limit: req.query.limit,
+      skip: req.query.skip
+    };
+    
+    const shops = await shopService.searchShops(filters);
     res.status(HTTP_STATUS.OK).json({
       success: true,
       data: shops

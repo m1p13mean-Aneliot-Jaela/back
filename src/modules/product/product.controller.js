@@ -3,9 +3,18 @@ const productService = require('./product.service');
 class ProductController {
   async create(req, res) {
     try {
+      console.log('DEBUG: Creating product with data:', JSON.stringify(req.body, null, 2));
+      console.log('DEBUG: Images received:', req.body.images?.length || 0);
+      
       const productId = await productService.createProduct(req.body);
-      res.status(201).json({ success: true, productId });
+      
+      // Fetch the created product to return full data
+      const product = await productService.getProductById(productId.toString());
+      console.log('DEBUG: Product created with images:', product.images?.length || 0);
+      
+      res.status(201).json({ success: true, productId, data: product });
     } catch (err) {
+      console.error('DEBUG: Error creating product:', err);
       res.status(500).json({ success: false, message: err.message });
     }
   }
@@ -46,6 +55,10 @@ class ProductController {
 
   async update(req, res) {
     try {
+      console.log('DEBUG: Update product ID:', req.params.id);
+      console.log('DEBUG: Update body:', JSON.stringify(req.body, null, 2));
+      console.log('DEBUG: Images in update:', req.body.images?.length || 0);
+      
       const count = await productService.updateProduct(req.params.id, req.body);
       if (count === 0) {
         return res.status(404).json({ success: false, message: 'Product not found' });
@@ -53,7 +66,8 @@ class ProductController {
       const product = await productService.getProductById(req.params.id);
       res.json({ success: true, message: 'Product updated successfully', data: product });
     } catch (err) {
-      res.status(500).json({ success: false, message: err.message });
+      console.error('DEBUG: Error updating product:', err);
+      res.status(500).json({ success: false, message: err.message, stack: err.stack });
     }
   }
 

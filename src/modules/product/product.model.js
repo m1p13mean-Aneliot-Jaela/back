@@ -71,6 +71,7 @@ const productSchema = new mongoose.Schema({
    },
    is_banned: { type: Boolean, default: false, index: true },
    is_featured: { type: Boolean, default: false, index: true },
+   low_stock_threshold: { type: Number, default: 10, min: 0 }, // Seuil d'alerte stock faible
    ban_info: {
      type: {
        reason: { type: String },
