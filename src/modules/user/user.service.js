@@ -81,6 +81,8 @@ class UserService {
 
   async assignUserToShop(userId, assignmentData) {
     const { shop_id, role } = assignmentData;
+    const Employee = require('../employee/employee.model');
+    const mongoose = require('mongoose');
 
     // Verify user exists
     const user = await userRepository.findById(userId);
@@ -117,6 +119,42 @@ class UserService {
     }
 
     await shop.save();
+
+    // Create employee entity
+    // Map shop role to employee role: owner/manager -> MANAGER_SHOP, others -> STAFF
+    const employeeRole = ['owner', 'manager'].includes(role.toLowerCase()) ? 'MANAGER_SHOP' : 'STAFF';
+    
+    // Check if employee already exists for this email
+    const existingEmployee = await Employee.findOne({ email: user.email });
+    
+    if (!existingEmployee) {
+      // Create new employee with already-hashed password
+      // Insert directly to bypass pre-save hook that would re-hash the password
+      const employeeData = {
+        first_name: user.first_name,
+        last_name: user.last_name,
+        email: user.email,
+        phone: user.phone || '',
+        password: user.password, // Already hashed from User model
+        shop_id: new mongoose.Types.ObjectId(shop_id),
+        shop_name: shop.shop_name,
+        role: employeeRole,
+        active: true,
+        joined_at: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        update_history: []
+      };
+      
+      await Employee.collection.insertOne(employeeData);
+    } else if (existingEmployee.shop_id.toString() !== shop_id.toString()) {
+      // Employee exists for another shop - update shop_id
+      existingEmployee.shop_id = shop_id;
+      existingEmployee.shop_name = shop.shop_name;
+      existingEmployee.role = employeeRole;
+      await existingEmployee.save();
+    }
+
     return shop;
   }
 }

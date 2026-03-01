@@ -1,14 +1,23 @@
 const Notification = require('./notification.model');
+const mongoose = require('mongoose');
 
 class NotificationService {
   /**
    * Create a notification
    */
   async createNotification(data) {
+    console.log('🔔 [NotificationService] Creating notification:', {
+      recipient_id: data.recipient_id || data.user_id,
+      recipient_type: data.recipient_type || 'USER',
+      type: data.type,
+      title: data.title
+    });
+
+    // Create notification exactly like Order model does it
     const notification = new Notification({
       recipient_id: data.recipient_id || data.user_id,
       recipient_type: data.recipient_type || 'USER',
-      user_id: data.user_id || data.recipient_id, // backward compatibility
+      user_id: data.user_id || data.recipient_id,
       type: data.type,
       order_id: data.order_id || null,
       shop_id: data.shop_id || null,
@@ -20,11 +29,16 @@ class NotificationService {
         icon: data.icon || (data.action_data?.icon) || 'notifications',
         color: data.color || (data.action_data?.color) || 'info',
         priority: data.priority || (data.action_data?.priority) || 'NORMAL'
-      },
-      created_at: new Date()
+      }
     });
 
-    return await notification.save();
+    const saved = await notification.save();
+    console.log('✅ [NotificationService] Notification saved:', {
+      id: saved._id,
+      recipient_id: saved.recipient_id,
+      recipient_type: saved.recipient_type
+    });
+    return saved;
   }
 
   /**
@@ -33,26 +47,48 @@ class NotificationService {
   async getNotifications(recipientId, options = {}) {
     const { limit = 20, unreadOnly = false } = options;
 
-    const query = { recipient_id: recipientId };
+    // Convert to ObjectId like Order service does
+    const query = { 
+      recipient_id: mongoose.Types.ObjectId.isValid(recipientId) 
+        ? new mongoose.Types.ObjectId(recipientId) 
+        : recipientId 
+    };
+    
     if (unreadOnly) {
       query.is_read = false;
     }
 
-    return await Notification.find(query)
+    console.log('🔔 [NotificationService] Querying with:', {
+      recipient_id: query.recipient_id.toString(),
+      unreadOnly
+    });
+
+    const notifications = await Notification.find(query)
       .sort({ created_at: -1 })
       .limit(limit)
       .populate('order_id', 'order_number total_amount')
       .populate('shop_id', 'shop_name')
       .populate('product_id', 'name')
       .lean();
+
+    console.log('🔔 [NotificationService] Found', notifications.length, 'notifications');
+
+    return notifications;
   }
 
   /**
    * Mark notification as read
    */
   async markAsRead(notificationId, recipientId) {
+    const query = {
+      _id: notificationId,
+      recipient_id: mongoose.Types.ObjectId.isValid(recipientId) 
+        ? new mongoose.Types.ObjectId(recipientId) 
+        : recipientId
+    };
+
     return await Notification.findOneAndUpdate(
-      { _id: notificationId, recipient_id: recipientId },
+      query,
       { is_read: true, read_at: new Date() },
       { new: true }
     );
@@ -62,8 +98,15 @@ class NotificationService {
    * Mark all as read for a recipient
    */
   async markAllAsRead(recipientId) {
+    const query = {
+      recipient_id: mongoose.Types.ObjectId.isValid(recipientId) 
+        ? new mongoose.Types.ObjectId(recipientId) 
+        : recipientId,
+      is_read: false
+    };
+
     return await Notification.updateMany(
-      { recipient_id: recipientId, is_read: false },
+      query,
       { is_read: true, read_at: new Date() }
     );
   }
@@ -72,10 +115,14 @@ class NotificationService {
    * Get unread count
    */
   async getUnreadCount(recipientId) {
-    return await Notification.countDocuments({
-      recipient_id: recipientId,
+    const query = {
+      recipient_id: mongoose.Types.ObjectId.isValid(recipientId) 
+        ? new mongoose.Types.ObjectId(recipientId) 
+        : recipientId,
       is_read: false
-    });
+    };
+
+    return await Notification.countDocuments(query);
   }
 
   // ===== ORDER NOTIFICATIONS =====

@@ -80,6 +80,31 @@ class NotificationController {
       data: { modified: result.modifiedCount }
     });
   });
+
+  // Test endpoint to create a notification
+  testCreate = catchAsync(async (req, res) => {
+    console.log('🧪 [TEST] Creating test notification for user:', req.user.email);
+    
+    const testNotif = await notificationService.createNotification({
+      recipient_id: req.user.id,
+      recipient_type: 'USER',
+      user_id: req.user.id,
+      type: 'SYSTEM',
+      title: 'Test Notification',
+      message: 'This is a test notification created at ' + new Date().toISOString(),
+      action_url: '/test',
+      icon: 'info',
+      color: 'info'
+    });
+
+    console.log('🧪 [TEST] Created notification:', testNotif._id);
+
+    res.status(200).json({
+      success: true,
+      message: 'Test notification created',
+      data: testNotif
+    });
+  });
 }
 
 module.exports = new NotificationController();

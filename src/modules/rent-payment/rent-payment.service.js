@@ -2,6 +2,7 @@ const { RentPayment } = require('./rent-payment.model');
 const { LeaseContract } = require('../lease-contract/lease-contract.model');
 const { Shop } = require('../shop/shop.model');
 const { NotFoundError, ValidationError } = require('../../shared/errors/custom-errors');
+const notificationService = require('../notification/notification.service');
 const mongoose = require('mongoose');
 
 class RentPaymentService {
@@ -154,6 +155,24 @@ class RentPaymentService {
     const payment = new RentPayment(paymentData);
     await payment.save();
 
+    // Notify shop about new rent payment due
+    try {
+      await notificationService.createNotification({
+        recipient_id: data.shop_id,
+        recipient_type: 'SHOP',
+        type: 'RENT_PAYMENT_DUE',
+        shop_id: data.shop_id,
+        title: 'Loyer à payer',
+        message: `Un loyer de ${parseFloat(data.amount).toLocaleString()} Ar est dû le ${new Date(data.due_date).toLocaleDateString('fr-FR')}`,
+        action_url: `/boutique/payments/${payment._id}`,
+        icon: 'payment',
+        color: 'warning',
+        priority: 'HIGH'
+      });
+    } catch (notifErr) {
+      console.error('Error creating rent payment notification:', notifErr);
+    }
+
     return await this.getRentPaymentById(payment._id);
   }
 
@@ -202,6 +221,40 @@ class RentPaymentService {
     });
 
     await payment.save();
+
+    // Create notifications based on status
+    try {
+      if (status === 'SUCCESSFUL') {
+        // Notify shop that payment was successful
+        await notificationService.createNotification({
+          recipient_id: payment.shop_id,
+          recipient_type: 'SHOP',
+          type: 'RENT_PAYMENT_RECEIVED',
+          shop_id: payment.shop_id,
+          title: 'Paiement de loyer confirmé',
+          message: `Votre paiement de ${parseFloat(payment.amount).toLocaleString()} Ar a été confirmé.`,
+          action_url: `/boutique/payments/${payment._id}`,
+          icon: 'check_circle',
+          color: 'success'
+        });
+      } else if (status === 'FAILED') {
+        // Notify shop that payment failed
+        await notificationService.createNotification({
+          recipient_id: payment.shop_id,
+          recipient_type: 'SHOP',
+          type: 'RENT_PAYMENT_FAILED',
+          shop_id: payment.shop_id,
+          title: 'Échec du paiement de loyer',
+          message: `Le paiement de ${parseFloat(payment.amount).toLocaleString()} Ar a échoué. ${reason || ''}`,
+          action_url: `/boutique/payments/${payment._id}`,
+          icon: 'error',
+          color: 'error',
+          priority: 'HIGH'
+        });
+      }
+    } catch (notifErr) {
+      console.error('Error creating payment status notification:', notifErr);
+    }
 
     return await this.getRentPaymentById(id);
   }

@@ -29,6 +29,8 @@ const notificationSchema = new mongoose.Schema({
     enum: [
       // Order notifications
       'ORDER_NEW',                 // New order received (for shop)
+      'ORDER_CREATED',             // Order created confirmation (for client)
+      'ORDER_ASSIGNED',            // Order assigned to staff
       'ORDER_CONFIRMED',           // Order confirmed
       'ORDER_PAYMENT_REQUESTED',   // Payment requested
       'ORDER_PAID',                // Order paid
@@ -37,10 +39,22 @@ const notificationSchema = new mongoose.Schema({
       'ORDER_CANCELED',            // Order canceled
       'ORDER_REFUNDED',            // Order refunded
 
+      // Quote request notifications
+      'QUOTE_REQUEST',             // New quote request received (for shop)
+      'QUOTE_RESPONSE',            // Quote response received (for client)
+      'QUOTE_ACCEPTED',            // Quote accepted by client (for shop)
+      'QUOTE_REJECTED',            // Quote rejected by client (for shop)
+
       // Payment notifications
       'PAYMENT_RECEIVED',          // Payment received confirmation
       'PAYMENT_FAILED',            // Payment failed
       'PAYMENT_PENDING',           // Payment pending reminder
+
+      // Rent payment notifications
+      'RENT_PAYMENT_DUE',          // Rent payment due soon
+      'RENT_PAYMENT_RECEIVED',     // Rent payment received
+      'RENT_PAYMENT_OVERDUE',      // Rent payment overdue
+      'RENT_PAYMENT_FAILED',       // Rent payment failed
 
       // Shop notifications
       'STOCK_LOW',                 // Low stock alert

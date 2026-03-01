@@ -303,31 +303,7 @@ class ShopService {
     return shop.categories || [];
   }
 
-  // Assign user to shop (admin)
-  async assignUserToShop(shopId, userId, role, userData = {}) {
-    const shop = await Shop.findById(shopId);
-    if (!shop) {
-      throw new NotFoundError('Shop not found');
-    }
 
-    // Check if user already assigned
-    const existingUser = shop.users.find(u => u.user_id.toString() === userId.toString());
-    if (existingUser) {
-      throw new ValidationError('User already assigned to this shop');
-    }
-
-    // Add user
-    shop.users.push({
-      user_id: userId,
-      role,
-      assigned_at: new Date(),
-      first_name: userData.first_name,
-      last_name: userData.last_name
-    });
-
-    await shop.save();
-    return shop;
-  }
 
   // Remove user from shop (admin)
   async removeUserFromShop(shopId, userId) {
@@ -372,6 +348,8 @@ class ShopService {
   // Assign user to shop (admin)
   async assignUserToShop(shopId, userId, role = 'owner') {
     const User = require('../user/user.model');
+    const employeeService = require('../employee/employee.service');
+    const Employee = require('../employee/employee.model');
     
     const shop = await Shop.findById(shopId);
     if (!shop) {
@@ -401,6 +379,29 @@ class ShopService {
     }
 
     await shop.save();
+
+    // Create employee entity
+    // Map shop role to employee role: owner/manager -> MANAGER_SHOP, others -> STAFF
+    const employeeRole = ['owner', 'manager'].includes(role.toLowerCase()) ? 'MANAGER_SHOP' : 'STAFF';
+    
+    // Check if employee already exists for this user and shop
+    const existingEmployee = await Employee.findOne({ email: user.email, shop_id: shopId });
+    
+    if (!existingEmployee) {
+      // Create new employee
+      await employeeService.createEmployee({
+        first_name: user.first_name,
+        last_name: user.last_name,
+        email: user.email,
+        phone: user.phone || '',
+        password: user.password, // Already hashed
+        shop_id: shopId,
+        shop_name: shop.shop_name,
+        role: employeeRole,
+        active: true
+      });
+    }
+
     await shop.populate('users.user_id', 'first_name last_name email');
     
     return shop;

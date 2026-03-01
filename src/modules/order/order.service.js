@@ -111,6 +111,29 @@ class OrderService {
       console.error('❌ Error stack:', notifError.stack);
     }
 
+    // Notify client about order creation
+    if (orderData.user_id) {
+      try {
+        console.log('🔔 Creating notification for client:', orderData.user_id);
+        await notificationService.createNotification({
+          recipient_id: orderData.user_id,
+          recipient_type: 'USER',
+          user_id: orderData.user_id,
+          type: 'ORDER_NEW',
+          order_id: savedOrder._id,
+          shop_id: orderData.shop_id,
+          title: 'Commande créée avec succès',
+          message: `Votre commande #${orderNumber} d'un montant de ${total_amount.toLocaleString()} Ar a été créée. En attente de confirmation.`,
+          action_url: `/client/orders/${savedOrder._id}`,
+          icon: 'shopping_cart',
+          color: 'success'
+        });
+        console.log('✅ Client notification created');
+      } catch (notifError) {
+        console.error('❌ Error creating client notification:', notifError.message);
+      }
+    }
+
     return savedOrder;
   }
 

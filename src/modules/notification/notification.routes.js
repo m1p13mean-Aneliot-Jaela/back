@@ -6,6 +6,9 @@ const { authenticate, authorize } = require('../../middlewares/auth.middleware')
 // All routes require authentication
 router.use(authenticate);
 
+// Test endpoint to create a notification
+router.post('/test-create', notificationController.testCreate);
+
 // Get my notifications
 router.get('/', notificationController.getMyNotifications);
 
