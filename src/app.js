@@ -20,12 +20,12 @@ app.use(cookieParser());
 
 // CORS configuration
 const allowedOrigins = [
-  config.cors.origin,
+  ...config.cors.origins, // From environment variable (can be multiple, comma-separated)
   'http://localhost:4200',
   'http://localhost:4300',
   'http://127.0.0.1:4200',
   'http://127.0.0.1:4300'
-];
+].filter((origin, index, self) => self.indexOf(origin) === index); // Remove duplicates
 
 app.use(cors({
   origin: (origin, callback) => {

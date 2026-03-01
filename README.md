@@ -175,3 +175,37 @@ Run the database setup script to create collections with validators and indexes:
 ```bash
 npm run setup:db
 ```
+## Render Deployment
+
+The application is configured for easy deployment on Render.
+
+### Quick Deploy
+
+1. Push your code to GitHub/GitLab
+2. Go to [Render Dashboard](https://render.com/dashboard)
+3. Click "New +" → "Web Service"
+4. Select the `back` directory as root
+5. Set environment variables (see RENDER_DEPLOYMENT.md)
+6. Deploy
+
+### Configuration Files
+
+- `render.yaml` - Render service configuration (Infrastructure as Code)
+- `.env.render` - Example production environment variables
+- `RENDER_DEPLOYMENT.md` - Comprehensive deployment guide
+
+### Required Environment Variables
+
+Set these in Render Dashboard → Environment:
+- `MONGODB_URI` - MongoDB Atlas connection string
+- `JWT_SECRET` - Secure random string (use Render's Generate button)
+- `JWT_REFRESH_SECRET` - Another secure random string
+- `CORS_ORIGIN` - Your frontend URL (e.g., https://your-app.vercel.app)
+
+For detailed deployment instructions, see **[RENDER_DEPLOYMENT.md](RENDER_DEPLOYMENT.md)**.
+
+### Health Checks
+
+The application includes a health check endpoint at `/health` for monitoring:
+- **Endpoint**: `GET /health`
+- **Response**: `200 OK` with server status

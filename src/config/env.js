@@ -18,7 +18,11 @@ const config = {
   },
   
   cors: {
-    origin: process.env.CORS_ORIGIN || 'http://localhost:4200'
+    origin: process.env.CORS_ORIGIN || 'http://localhost:4200',
+    // Support multiple origins separated by comma
+    origins: process.env.CORS_ORIGIN 
+      ? process.env.CORS_ORIGIN.split(',').map(o => o.trim())
+      : ['http://localhost:4200']
   },
   
   logging: {

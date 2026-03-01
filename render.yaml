@@ -1,0 +1,49 @@
+services:
+  # Backend API Service
+  - type: web
+    name: m1p13mean-backend
+    env: node
+    region: frankfurt  # Change to your preferred region: oregon, frankfurt, singapore, etc.
+    plan: free  # Options: free, starter, standard, pro
+    branch: main
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    
+    envVars:
+      - key: NODE_ENV
+        value: production
+      
+      - key: PORT
+        value: 3000
+      
+      - key: HOST
+        value: 0.0.0.0
+      
+      - key: MONGODB_URI
+        sync: false  # Set this in Render Dashboard as a secret
+      
+      - key: JWT_SECRET
+        generateValue: true  # Render will generate a secure random value
+      
+      - key: JWT_EXPIRES_IN
+        value: 24h
+      
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: 7d
+      
+      - key: CORS_ORIGIN
+        value: https://your-frontend-app.vercel.app  # Update with your Vercel URL
+      
+      - key: LOG_LEVEL
+        value: info
+
+# Optional: MongoDB Database (if not using external MongoDB)
+# databases:
+#   - name: m1p13mean-db
+#     plan: free
+#     databaseName: m1p13mean
+#     user: m1p13mean_user
