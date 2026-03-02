@@ -96,7 +96,6 @@ router.patch('/me/profile',
 );
 
 // Upload logo with file (multipart/form-data) - only manager
-router.options('/me/profile/logo/upload', cors());
 router.post('/me/profile/logo/upload',
   authenticate,
   authorizeShopUser,
@@ -138,7 +137,6 @@ router.patch('/:shopId/profile/logo',
 );
 
 // Upload logo with file for specific shop
-router.options('/:shopId/profile/logo/upload', cors());
 router.post('/:shopId/profile/logo/upload',
   authenticate,
   authorizeShopUser,
