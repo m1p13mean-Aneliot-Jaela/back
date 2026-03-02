@@ -69,10 +69,9 @@ router.post(
   orderController.createOrder
 );
 
-// GET /api/orders/:id
+// GET /api/orders/:id - Public access for clients to view their orders
 router.get(
   '/orders/:id',
-  authenticate,
   orderController.getOrder
 );
 

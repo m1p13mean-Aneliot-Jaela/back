@@ -44,7 +44,12 @@ class ProductController {
       const options = {
         page: parseInt(req.query.page) || 1,
         limit: parseInt(req.query.limit) || 20,
-        isBanned: req.query.isBanned === 'true' ? true : req.query.isBanned === 'false' ? false : undefined
+        isBanned: req.query.isBanned === 'true' ? true : req.query.isBanned === 'false' ? false : undefined,
+        search: req.query.search,
+        minPrice: req.query.minPrice ? parseFloat(req.query.minPrice) : undefined,
+        maxPrice: req.query.maxPrice ? parseFloat(req.query.maxPrice) : undefined,
+        category: req.query.category,
+        sortBy: req.query.sortBy || 'newest'
       };
       const result = await productService.getProductsByShop(shopId, options);
       res.json({ success: true, data: result });

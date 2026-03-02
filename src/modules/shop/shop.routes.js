@@ -5,6 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const shopController = require('./shop.controller');
 const productController = require('../product/product.controller');
+const deliveryController = require('../delivery/delivery.controller');
 const { authenticate, authorize, checkShopOwnership, requirePermission } = require('../../middlewares/auth.middleware');
 
 // Configure multer for logo uploads
@@ -179,6 +180,11 @@ router.get('/:shopId/public',
 // Public route - Get products by shop
 router.get('/:shopId/products',
   productController.getByShop.bind(productController)
+);
+
+// Public route - Get delivery zones by shop (for quote requests)
+router.get('/:shopId/delivery-zones',
+  deliveryController.getZones.bind(deliveryController)
 );
 
 module.exports = router;

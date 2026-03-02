@@ -1,11 +1,15 @@
 const Product = require('./product.model');
 const mongoose = require('mongoose');
 const Stock = require('../stock/stock.model');
+const Promotion = require('../promotion/promotion.model');
 
 // Helper to convert Decimal128 to number and ObjectId to string
 function convertDecimal128(obj) {
   if (!obj) return obj;
   if (typeof obj !== 'object') return obj;
+
+  // Preserve Date instances
+  if (obj instanceof Date) return obj;
   
   // Decimal128 can appear as Extended JSON ({ $numberDecimal }) or BSON type (lean() returns _bsontype: 'Decimal128')
   if (obj.$numberDecimal) return parseFloat(obj.$numberDecimal);
@@ -31,6 +35,8 @@ function convertDecimal128(obj) {
       if (key === '_id' && value && typeof value === 'object') {
         // Convert _id to string
         result[key] = value.toString ? value.toString() : value;
+      } else if (value instanceof Date) {
+        result[key] = value;
       } else if (value && typeof value === 'object' && value.$numberDecimal) {
         // Convert Decimal128 fields directly
         result[key] = parseFloat(value.$numberDecimal);
@@ -70,15 +76,62 @@ class ProductRepository {
   }
 
   async findByShop(shopId, options = {}) {
-    const { page = 1, limit = 20, isBanned } = options;
+    const { page = 1, limit = 20, isBanned, search, minPrice, maxPrice, category, sortBy = 'newest' } = options;
     const skip = (page - 1) * limit;
     
     const query = { shop_id: new mongoose.Types.ObjectId(shopId) };
     if (isBanned !== undefined) query.is_banned = isBanned;
     
+    // Search by name
+    if (search) {
+      query.name = { $regex: search, $options: 'i' };
+    }
+    
+    // Price range filter (on unit_price or promo_price if active)
+    if (minPrice !== undefined || maxPrice !== undefined) {
+      const priceQuery = {};
+      if (minPrice !== undefined) priceQuery.$gte = minPrice;
+      if (maxPrice !== undefined) priceQuery.$lte = maxPrice;
+      query.unit_price = priceQuery;
+    }
+    
+    // Category filter - categories is an array of objects with category_id and name
+    if (category) {
+      // Check if category looks like an ObjectId (24 hex chars)
+      const isObjectId = /^[0-9a-fA-F]{24}$/.test(category);
+      
+      if (isObjectId) {
+        // Search by category_id
+        query['categories.category_id'] = new mongoose.Types.ObjectId(category);
+      } else {
+        // Search by name (case-insensitive)
+        query['categories.name'] = { $regex: category, $options: 'i' };
+      }
+    }
+    
+    // Build sort
+    let sortOption = { created_at: -1 };
+    switch (sortBy) {
+      case 'price_asc':
+        sortOption = { unit_price: 1 };
+        break;
+      case 'price_desc':
+        sortOption = { unit_price: -1 };
+        break;
+      case 'name':
+        sortOption = { name: 1 };
+        break;
+      case 'promo':
+        // Promo is computed at runtime from the Promotion collection, so we can't sort in Mongo by current_promo
+        sortOption = { created_at: -1 };
+        break;
+      default: // newest
+        sortOption = { created_at: -1 };
+    }
+    
     const [rawProducts, total, categories] = await Promise.all([
       Product.find(query)
-        .sort({ created_at: -1 })
+        .sort(sortOption)
         .skip(skip)
         .limit(limit)
         .lean(),
@@ -88,19 +141,12 @@ class ProductRepository {
     
     // Get product IDs to fetch stocks (as ObjectIds)
     const productIds = rawProducts.map(p => new mongoose.Types.ObjectId(p._id));
-    console.log('DEBUG: ShopId:', shopId);
-    console.log('DEBUG: Product IDs count:', productIds.length);
-    console.log('DEBUG: First product ID:', productIds[0]?.toString());
     
     // Fetch stocks for these products
     const stocks = await Stock.find({
       shop_id: new mongoose.Types.ObjectId(shopId),
       product_id: { $in: productIds }
     }).lean();
-    
-    console.log('DEBUG: Found stocks count:', stocks.length);
-    console.log('DEBUG: First stock:', stocks[0]);
-    console.log('DEBUG: All stocks product_ids:', stocks.map(s => ({ pid: s.product_id?.toString(), qty: s.current_quantity })));
     
     // Create a map of product_id -> stock_quantity
     const stockMap = new Map();
@@ -115,6 +161,75 @@ class ProductRepository {
       converted.is_available = converted.stock_quantity > 0;
       return converted;
     });
+
+    const now = new Date();
+    const rawPromotions = await Promotion.find({
+      shop_id: new mongoose.Types.ObjectId(shopId),
+      is_active: true,
+      start_date: { $lte: now },
+      end_date: { $gte: now }
+    }).lean();
+    const promotions = convertDecimal128(rawPromotions);
+
+    if (Array.isArray(promotions) && promotions.length > 0) {
+      for (const product of products) {
+        const productId = product?._id?.toString?.() ?? String(product?._id);
+        let bestPromo = null;
+        let bestPromoPrice = null;
+
+        for (const promo of promotions) {
+          if (!promo) continue;
+
+          const exclusions = Array.isArray(promo.exclusions) ? promo.exclusions.map(e => e?.toString?.() ?? String(e)) : [];
+          if (productId && exclusions.includes(productId)) continue;
+
+          const applicable = promo.applicable_products;
+          const isApplicableToAll = applicable === 'ALL';
+          const isApplicableToProduct = Array.isArray(applicable)
+            ? applicable.map(a => a?.toString?.() ?? String(a)).includes(productId)
+            : false;
+          if (!isApplicableToAll && !isApplicableToProduct) continue;
+
+          const unitPrice = typeof product.unit_price === 'number' ? product.unit_price : parseFloat(product.unit_price);
+          if (!Number.isFinite(unitPrice)) continue;
+          const value = typeof promo.value === 'number' ? promo.value : parseFloat(promo.value);
+          if (!Number.isFinite(value)) continue;
+
+          let promoPrice = unitPrice;
+          if (promo.type === 'percentage') {
+            promoPrice = unitPrice * (1 - value / 100);
+          } else if (promo.type === 'fixed_amount') {
+            promoPrice = unitPrice - value;
+          }
+          promoPrice = Math.max(0, promoPrice);
+
+          if (bestPromoPrice === null || promoPrice < bestPromoPrice) {
+            bestPromoPrice = promoPrice;
+            bestPromo = promo;
+          }
+        }
+
+        if (bestPromo && bestPromoPrice !== null) {
+          product.current_promo = {
+            promo_price: bestPromoPrice,
+            start_date: bestPromo.start_date,
+            end_date: bestPromo.end_date,
+            created_at: bestPromo.created_at
+          };
+        }
+      }
+    }
+
+    if (sortBy === 'promo') {
+      products.sort((a, b) => {
+        const aHas = a && a.current_promo ? 1 : 0;
+        const bHas = b && b.current_promo ? 1 : 0;
+        if (aHas !== bHas) return bHas - aHas;
+        const aCreated = a && a.created_at ? new Date(a.created_at).getTime() : 0;
+        const bCreated = b && b.created_at ? new Date(b.created_at).getTime() : 0;
+        return bCreated - aCreated;
+      });
+    }
     
     return {
       products,

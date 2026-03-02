@@ -6,6 +6,15 @@ const { validateRequest } = require('../../middlewares/validation.middleware');
 const { body, param } = require('express-validator');
 
 // ============================================
+// PUBLIC ROUTES - No authentication required
+// ============================================
+
+// Get all categories (public)
+router.get('/',
+  shopCategoryController.getAllCategories
+);
+
+// ============================================
 // VALIDATION RULES
 // ============================================
 
