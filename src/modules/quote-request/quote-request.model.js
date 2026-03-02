@@ -46,6 +46,9 @@ const QuoteRequestSchema = new mongoose.Schema({
   client_address: { type: ClientAddressSchema, default: () => ({}) },
   client_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null, index: true },
   
+  // Delivery zone selected by client
+  delivery_zone_id: { type: mongoose.Schema.Types.ObjectId, ref: 'DeliveryZone', default: null },
+  
   // Shop target
   shop_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Shop', required: true, index: true },
   shop_name: { type: String, required: true },
