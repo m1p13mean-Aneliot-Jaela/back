@@ -52,7 +52,8 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(compression());
 
 // Static files serving (uploads)
-app.use('/uploads', express.static(path.join(__dirname, '../../uploads')));
+const uploadsDir = process.env.RENDER ? '/tmp/uploads' : path.join(__dirname, '../../uploads');
+app.use('/uploads', express.static(uploadsDir));
 
 // Request logging middleware
 app.use((req, res, next) => {

@@ -12,14 +12,20 @@ const { authenticate, authorize, checkShopOwnership, requirePermission } = requi
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const shopId = req.params.shopId || req.user?.shop_id;
-    const uploadDir = path.join(__dirname, '../../../../uploads/shops', shopId?.toString() || 'temp', 'logo');
+    // Use /tmp for Render (ephemeral filesystem), fallback to local uploads for development
+    const baseDir = process.env.RENDER ? '/tmp/uploads' : path.join(__dirname, '../../../../uploads');
+    const uploadDir = path.join(baseDir, 'shops', shopId?.toString() || 'temp', 'logo');
     
     // Create directory if it doesn't exist
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
+    try {
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+      cb(null, uploadDir);
+    } catch (err) {
+      console.error('Error creating upload directory:', err);
+      cb(err);
     }
-    
-    cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -90,10 +96,11 @@ router.patch('/me/profile',
 );
 
 // Upload logo with file (multipart/form-data) - only manager
+router.options('/me/profile/logo/upload', cors());
 router.post('/me/profile/logo/upload',
   authenticate,
   authorizeShopUser,
-  requirePermission('manage_employees'), // Using manage_employees as proxy for manager-only actions
+  requirePermission('manage_employees'),
   upload.single('logo'),
   shopController.uploadLogo
 );
@@ -131,6 +138,7 @@ router.patch('/:shopId/profile/logo',
 );
 
 // Upload logo with file for specific shop
+router.options('/:shopId/profile/logo/upload', cors());
 router.post('/:shopId/profile/logo/upload',
   authenticate,
   authorizeShopUser,

@@ -30,7 +30,17 @@ const errorMiddleware = (err, req, res, next) => {
     message = `Duplicate value for ${field}`;
   }
 
-  // JWT errors
+  // Multer file upload errors
+  if (err.name === 'MulterError') {
+    statusCode = 400;
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      message = 'File too large';
+    } else if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+      message = 'Unexpected field name';
+    } else {
+      message = `Upload error: ${err.message}`;
+    }
+  }
   if (err.name === 'JsonWebTokenError') {
     statusCode = 401;
     message = 'Invalid token';
