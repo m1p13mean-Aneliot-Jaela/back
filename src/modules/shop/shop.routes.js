@@ -12,14 +12,18 @@ const { authenticate, authorize, checkShopOwnership, requirePermission } = requi
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const shopId = req.params.shopId || req.user?.shop_id;
-    // Use /tmp for Render (ephemeral filesystem), fallback to local uploads for development
-    const baseDir = process.env.RENDER ? '/tmp/uploads' : path.join(__dirname, '../../../../uploads');
+    // Detect Render environment: RENDER env var or no write access to local uploads
+    const isRender = process.env.RENDER || process.env.RENDER_SERVICE_ID || !fs.existsSync(path.join(__dirname, '../../../../uploads'));
+    const baseDir = isRender ? '/tmp/uploads' : path.join(__dirname, '../../../../uploads');
     const uploadDir = path.join(baseDir, 'shops', shopId?.toString() || 'temp', 'logo');
+    
+    console.log('Upload destination:', uploadDir, 'isRender:', isRender);
     
     // Create directory if it doesn't exist
     try {
       if (!fs.existsSync(uploadDir)) {
         fs.mkdirSync(uploadDir, { recursive: true });
+        console.log('Created directory:', uploadDir);
       }
       cb(null, uploadDir);
     } catch (err) {

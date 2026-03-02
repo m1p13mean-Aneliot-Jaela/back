@@ -41,7 +41,8 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+  exposedHeaders: ['Content-Length', 'X-Requested-With']
 }));
 
 // Body parsing middleware - increased limit for base64 images
@@ -51,8 +52,9 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Compression middleware
 app.use(compression());
 
-// Static files serving (uploads)
+// Static files serving (uploads) - must be before other middleware for proper handling
 const uploadsDir = process.env.RENDER ? '/tmp/uploads' : path.join(__dirname, '../../uploads');
+console.log('Static files directory:', uploadsDir, 'RENDER env:', !!process.env.RENDER);
 app.use('/uploads', express.static(uploadsDir));
 
 // Request logging middleware
