@@ -121,8 +121,8 @@ class UserService {
     await shop.save();
 
     // Create employee entity
-    // Map shop role to employee role: owner/manager -> MANAGER_SHOP, others -> STAFF
-    const employeeRole = ['owner', 'manager'].includes(role.toLowerCase()) ? 'MANAGER_SHOP' : 'STAFF';
+    // Map shop role to employee role: owner/manager/MANAGER_SHOP -> MANAGER_SHOP, others -> STAFF
+    const employeeRole = ['owner', 'manager', 'manager_shop'].includes(role.toLowerCase()) ? 'MANAGER_SHOP' : 'STAFF';
     
     // Check if employee already exists for this email
     const existingEmployee = await Employee.findOne({ email: user.email });
