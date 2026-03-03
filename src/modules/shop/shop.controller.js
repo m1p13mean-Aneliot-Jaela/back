@@ -200,28 +200,34 @@ class ShopController {
     });
   });
 
-  // Upload logo (with file)
+  // Upload logo (base64 image stored in MongoDB)
   uploadLogo = catchAsync(async (req, res) => {
     const { shopId } = req.params;
+    const { logo_base64 } = req.body;
     
-    // Assuming file is handled by multer middleware
-    if (!req.file) {
+    // Accept base64 image from request body
+    if (!logo_base64) {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({
         success: false,
-        message: 'Aucun fichier uploadé'
+        message: 'Image base64 requise (logo_base64)'
       });
     }
 
-    // Build full file URL with backend host
-    const protocol = req.protocol;
-    const host = req.get('host');
-    const logoUrl = `${protocol}://${host}/uploads/shops/${shopId}/logo/${req.file.filename}`;
+    // Validate base64 format
+    if (!logo_base64.startsWith('data:image/')) {
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
+        success: false,
+        message: 'Format base64 invalide. Doit commencer par data:image/...'
+      });
+    }
+
+    // Store base64 in MongoDB
+    const profile = await shopService.updateLogo(shopId, logo_base64);
     
-    const profile = await shopService.updateLogo(shopId, logoUrl);
     res.status(HTTP_STATUS.OK).json({
       success: true,
       message: 'Logo uploadé avec succès',
-      data: { logo_url: logoUrl, profile }
+      data: { logo_url: logo_base64, profile }
     });
   });
 

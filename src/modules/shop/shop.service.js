@@ -98,6 +98,56 @@ class ShopService {
     return this.getShopById(id);
   }
 
+  // Get shop profile by user ID (find shop where user is assigned)
+  async getProfileByUserId(userId) {
+    const shop = await Shop.findOne({
+      'users.user_id': userId
+    })
+      .populate('categories.category_id', 'name')
+      .populate('users.user_id', 'first_name last_name email');
+    
+    if (!shop) {
+      return null;
+    }
+
+    // Transform backend fields to frontend expected format
+    return {
+      _id: shop._id,
+      name: shop.shop_name,
+      description: shop.description,
+      logo: shop.logo,
+      location: {
+        address: shop.mall_location || '',
+        city: '',
+        postal_code: '',
+        country: 'MG',
+        latitude: shop.latitude,
+        longitude: shop.longitude
+      },
+      contact: shop.contact_info || {
+        phone: '',
+        email: '',
+        website: '',
+        whatsapp: ''
+      },
+      social_media: shop.social_media || {
+        facebook: '',
+        instagram: '',
+        twitter: '',
+        youtube: ''
+      },
+      business_hours: shop.opening_time || {
+        monday: { open: '08:00', close: '18:00', closed: false },
+        tuesday: { open: '08:00', close: '18:00', closed: false },
+        wednesday: { open: '08:00', close: '18:00', closed: false },
+        thursday: { open: '08:00', close: '18:00', closed: false },
+        friday: { open: '08:00', close: '18:00', closed: false },
+        saturday: { open: '08:00', close: '12:00', closed: false },
+        sunday: { open: '08:00', close: '18:00', closed: true }
+      }
+    };
+  }
+
   // Create shop (admin)
   async createShop(data) {
     const ShopCategory = require('../shop-category/shop-category.model');
@@ -282,13 +332,35 @@ class ShopService {
       throw new NotFoundError('Shop not found');
     }
 
-    // Update allowed fields only
-    const allowedFields = ['shop_name', 'description', 'logo', 'mall_location', 'opening_time', 'contact_info'];
-    allowedFields.forEach(field => {
-      if (data[field] !== undefined) {
-        shop[field] = data[field];
-      }
-    });
+    // Map frontend field names to backend field names
+    const fieldMapping = {
+      'name': 'shop_name',
+      'description': 'description',
+      'logo': 'logo',
+      'location': 'mall_location', // special handling below
+      'business_hours': 'opening_time', // special handling below
+      'contact': 'contact_info',
+      'social_media': 'social_media'
+    };
+
+    // Update mapped fields
+    if (data.name !== undefined) shop.shop_name = data.name;
+    if (data.description !== undefined) shop.description = data.description;
+    if (data.logo !== undefined) shop.logo = data.logo;
+    if (data.contact !== undefined) shop.contact_info = { ...shop.contact_info, ...data.contact };
+    if (data.social_media !== undefined) shop.social_media = { ...shop.social_media, ...data.social_media };
+    
+    // Handle location (extract address from location object)
+    if (data.location !== undefined) {
+      shop.mall_location = data.location.address || data.location;
+      if (data.location.latitude) shop.latitude = data.location.latitude;
+      if (data.location.longitude) shop.longitude = data.location.longitude;
+    }
+    
+    // Handle business_hours (save as opening_time)
+    if (data.business_hours !== undefined) {
+      shop.opening_time = data.business_hours;
+    }
 
     await shop.save();
     return shop;

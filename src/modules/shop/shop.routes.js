@@ -99,12 +99,11 @@ router.patch('/me/profile',
   shopController.updateMyProfile
 );
 
-// Upload logo with file (multipart/form-data) - only manager
+// Upload logo (base64) - only manager
 router.post('/me/profile/logo/upload',
   authenticate,
   authorizeShopUser,
   requirePermission('manage_employees'),
-  upload.single('logo'),
   shopController.uploadLogo
 );
 
@@ -140,12 +139,11 @@ router.patch('/:shopId/profile/logo',
   shopController.updateLogo
 );
 
-// Upload logo with file for specific shop
+// Upload logo (base64) for specific shop
 router.post('/:shopId/profile/logo/upload',
   authenticate,
   authorizeShopUser,
   checkShopOwnership,
-  upload.single('logo'),
   shopController.uploadLogo
 );
 
